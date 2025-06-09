@@ -1,0 +1,65 @@
+{
+  "name": "ncs-api-docs",
+  "version": "1.0.0",
+  "description": "Documentation site for the NeuroCluster Streamer API",
+  "private": true,
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview",
+    "docs:dev": "vitepress dev",
+    "docs:build": "vitepress build",
+    "docs:preview": "vitepress preview",
+    "redoc:build": "redoc-cli build openapi.json --output=dist/api-reference.html",
+    "swagger:serve": "swagger-ui-serve openapi.json",
+    "typedoc:build": "typedoc --out dist/sdk-docs ../sdk/javascript/src/",
+    "serve": "http-server dist -p 3000",
+    "lint": "markdownlint docs/**/*.md",
+    "lint:fix": "markdownlint docs/**/*.md --fix",
+    "spellcheck": "cspell '**/*.md'",
+    "validate:links": "markdown-link-check docs/**/*.md"
+  },
+  "keywords": [
+    "documentation",
+    "api-docs",
+    "vitepress",
+    "neurocluster",
+    "api",
+    "machine-learning"
+  ],
+  "author": {
+    "name": "NCS API Development Team",
+    "email": "docs@yourdomain.com"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "vitepress": "^1.0.0",
+    "@redocly/cli": "^1.5.0",
+    "redoc-cli": "^0.13.21",
+    "swagger-ui-dist": "^5.9.0",
+    "typedoc": "^0.25.0",
+    "http-server": "^14.1.1",
+    "markdownlint-cli": "^0.37.0",
+    "cspell": "^7.3.0",
+    "markdown-link-check": "^3.11.2",
+    "@mdit-vue/shared": "^0.12.0",
+    "vue": "^3.3.0"
+  },
+  "dependencies": {
+    "mermaid": "^10.6.0",
+    "prismjs": "^1.29.0"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/ncs-api.git",
+    "directory": "docs"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/ncs-api/issues"
+  },
+  "homepage": "https://your-org.github.io/ncs-api"
+}
