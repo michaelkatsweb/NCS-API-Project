@@ -1,0 +1,20 @@
+# This file ensures the logs directory is tracked by Git
+# 
+# The logs directory is used for storing application logs during runtime.
+# This .gitkeep file maintains the directory structure in version control
+# while allowing the actual log files to be excluded via .gitignore.
+#
+# Note: Actual log files should not be committed to version control
+# as they contain runtime data and can become very large.
+#
+# Log files are typically excluded in .gitignore with patterns like:
+# logs/*.log
+# logs/*.txt
+# logs/app-*.log
+# logs/error-*.log
+#
+# For production deployments, consider using:
+# - Centralized logging (ELK Stack, Splunk, etc.)
+# - Log rotation to manage disk space
+# - Log aggregation for distributed systems
+# - Structured logging for better analysis

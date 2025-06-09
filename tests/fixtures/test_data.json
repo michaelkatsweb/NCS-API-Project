@@ -1,0 +1,397 @@
+{
+  "description": "Test data fixtures for NeuroCluster Streamer API comprehensive testing",
+  "version": "1.0.0",
+  "created": "2025-06-06",
+  
+  "sample_data_points": {
+    "small_dataset": [
+      {"id": "point_1", "features": [1.0, 2.0, 3.0], "expected_cluster": "cluster_A"},
+      {"id": "point_2", "features": [1.1, 2.1, 3.1], "expected_cluster": "cluster_A"},
+      {"id": "point_3", "features": [5.0, 6.0, 7.0], "expected_cluster": "cluster_B"},
+      {"id": "point_4", "features": [5.1, 6.1, 7.1], "expected_cluster": "cluster_B"},
+      {"id": "point_5", "features": [10.0, 11.0, 12.0], "expected_cluster": "outlier"}
+    ],
+    
+    "clustered_dataset": [
+      {"id": "cluster1_point1", "features": [1.0, 1.0, 1.0], "expected_cluster": "tight_cluster_1"},
+      {"id": "cluster1_point2", "features": [1.1, 1.1, 1.1], "expected_cluster": "tight_cluster_1"},
+      {"id": "cluster1_point3", "features": [1.2, 1.2, 1.2], "expected_cluster": "tight_cluster_1"},
+      {"id": "cluster1_point4", "features": [1.3, 1.3, 1.3], "expected_cluster": "tight_cluster_1"},
+      {"id": "cluster2_point1", "features": [5.0, 5.0, 5.0], "expected_cluster": "tight_cluster_2"},
+      {"id": "cluster2_point2", "features": [5.1, 5.1, 5.1], "expected_cluster": "tight_cluster_2"},
+      {"id": "cluster2_point3", "features": [5.2, 5.2, 5.2], "expected_cluster": "tight_cluster_2"},
+      {"id": "cluster2_point4", "features": [5.3, 5.3, 5.3], "expected_cluster": "tight_cluster_2"},
+      {"id": "cluster3_point1", "features": [10.0, 10.0, 10.0], "expected_cluster": "tight_cluster_3"},
+      {"id": "cluster3_point2", "features": [10.1, 10.1, 10.1], "expected_cluster": "tight_cluster_3"}
+    ],
+    
+    "outlier_dataset": [
+      {"id": "normal_1", "features": [2.0, 2.0, 2.0], "expected_cluster": "normal_cluster"},
+      {"id": "normal_2", "features": [2.1, 2.1, 2.1], "expected_cluster": "normal_cluster"},
+      {"id": "normal_3", "features": [2.2, 2.2, 2.2], "expected_cluster": "normal_cluster"},
+      {"id": "normal_4", "features": [2.3, 2.3, 2.3], "expected_cluster": "normal_cluster"},
+      {"id": "outlier_1", "features": [100.0, 100.0, 100.0], "expected_cluster": "outlier"},
+      {"id": "outlier_2", "features": [-50.0, -50.0, -50.0], "expected_cluster": "outlier"},
+      {"id": "outlier_3", "features": [1000.0, 1000.0, 1000.0], "expected_cluster": "outlier"}
+    ],
+    
+    "high_dimensional_dataset": [
+      {"id": "hd_point_1", "features": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0], "expected_cluster": "hd_cluster_1"},
+      {"id": "hd_point_2", "features": [1.1, 2.1, 3.1, 4.1, 5.1, 6.1, 7.1, 8.1, 9.1, 10.1], "expected_cluster": "hd_cluster_1"},
+      {"id": "hd_point_3", "features": [10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0], "expected_cluster": "hd_cluster_2"}
+    ],
+    
+    "performance_dataset": {
+      "description": "Large dataset for performance testing",
+      "size": 10000,
+      "generation_pattern": {
+        "cluster_1": {"center": [0.0, 0.0, 0.0], "std": 0.5, "count": 3000},
+        "cluster_2": {"center": [5.0, 5.0, 5.0], "std": 0.8, "count": 3000},
+        "cluster_3": {"center": [10.0, 10.0, 10.0], "std": 0.6, "count": 3000},
+        "outliers": {"random_range": [-20.0, 20.0], "count": 1000}
+      }
+    }
+  },
+  
+  "clustering_configurations": {
+    "default_config": {
+      "similarity_threshold": 0.85,
+      "min_cluster_size": 3,
+      "max_clusters": 1000,
+      "outlier_threshold": 0.75,
+      "adaptive_threshold": true
+    },
+    
+    "strict_config": {
+      "similarity_threshold": 0.95,
+      "min_cluster_size": 5,
+      "max_clusters": 100,
+      "outlier_threshold": 0.9,
+      "adaptive_threshold": false
+    },
+    
+    "loose_config": {
+      "similarity_threshold": 0.7,
+      "min_cluster_size": 2,
+      "max_clusters": 5000,
+      "outlier_threshold": 0.5,
+      "adaptive_threshold": true
+    },
+    
+    "performance_config": {
+      "similarity_threshold": 0.8,
+      "min_cluster_size": 10,
+      "max_clusters": 500,
+      "outlier_threshold": 0.8,
+      "adaptive_threshold": true,
+      "memory_limit_mb": 1024,
+      "processing_timeout_ms": 5000
+    }
+  },
+  
+  "test_users": {
+    "admin_user": {
+      "user_id": "admin_test_001",
+      "email": "admin@ncs-test.com",
+      "role": "admin",
+      "scopes": ["read", "write", "admin", "delete"],
+      "password_hash": "$2b$12$example_admin_password_hash",
+      "created_at": "2025-01-01T00:00:00Z",
+      "is_active": true
+    },
+    
+    "regular_user": {
+      "user_id": "user_test_001", 
+      "email": "user@ncs-test.com",
+      "role": "user",
+      "scopes": ["read", "write"],
+      "password_hash": "$2b$12$example_user_password_hash",
+      "created_at": "2025-01-01T00:00:00Z",
+      "is_active": true
+    },
+    
+    "readonly_user": {
+      "user_id": "readonly_test_001",
+      "email": "readonly@ncs-test.com", 
+      "role": "readonly",
+      "scopes": ["read"],
+      "password_hash": "$2b$12$example_readonly_password_hash",
+      "created_at": "2025-01-01T00:00:00Z",
+      "is_active": true
+    },
+    
+    "suspended_user": {
+      "user_id": "suspended_test_001",
+      "email": "suspended@ncs-test.com",
+      "role": "user",
+      "scopes": ["read"],
+      "password_hash": "$2b$12$example_suspended_password_hash",
+      "created_at": "2025-01-01T00:00:00Z",
+      "is_active": false
+    }
+  },
+  
+  "test_sessions": {
+    "basic_session": {
+      "session_id": "test_session_001",
+      "session_name": "Basic Test Session",
+      "user_id": "user_test_001",
+      "algorithm_config": {
+        "similarity_threshold": 0.85,
+        "min_cluster_size": 3,
+        "max_clusters": 100
+      },
+      "status": "active",
+      "created_at": "2025-06-06T10:00:00Z"
+    },
+    
+    "performance_session": {
+      "session_id": "test_session_002",
+      "session_name": "Performance Test Session",
+      "user_id": "admin_test_001",
+      "algorithm_config": {
+        "similarity_threshold": 0.8,
+        "min_cluster_size": 10,
+        "max_clusters": 1000
+      },
+      "status": "active",
+      "created_at": "2025-06-06T10:00:00Z"
+    },
+    
+    "completed_session": {
+      "session_id": "test_session_003",
+      "session_name": "Completed Test Session",
+      "user_id": "user_test_001",
+      "algorithm_config": {
+        "similarity_threshold": 0.9,
+        "min_cluster_size": 5,
+        "max_clusters": 50
+      },
+      "status": "completed",
+      "created_at": "2025-06-05T10:00:00Z",
+      "completed_at": "2025-06-05T11:30:00Z",
+      "total_points_processed": 1000,
+      "total_clusters_created": 15,
+      "outliers_detected": 23
+    }
+  },
+  
+  "expected_clustering_results": {
+    "small_dataset_results": {
+      "expected_clusters": 2,
+      "expected_outliers": 1,
+      "cluster_assignments": {
+        "point_1": "cluster_A",
+        "point_2": "cluster_A", 
+        "point_3": "cluster_B",
+        "point_4": "cluster_B",
+        "point_5": "outlier"
+      }
+    },
+    
+    "clustered_dataset_results": {
+      "expected_clusters": 3,
+      "expected_outliers": 0,
+      "cluster_quality_metrics": {
+        "min_silhouette_score": 0.7,
+        "min_cluster_cohesion": 0.8,
+        "max_inter_cluster_distance": 5.0
+      }
+    }
+  },
+  
+  "security_test_data": {
+    "injection_payloads": {
+      "sql_injection": [
+        "'; DROP TABLE users; --",
+        "' OR '1'='1",
+        "'; DELETE FROM data_points; --",
+        "' UNION SELECT * FROM system_users --"
+      ],
+      
+      "xss_payloads": [
+        "<script>alert('XSS')</script>",
+        "<img src=x onerror=alert('XSS')>",
+        "javascript:alert('XSS')",
+        "<svg onload=alert('XSS')>"
+      ],
+      
+      "command_injection": [
+        "; ls -la",
+        "| cat /etc/passwd", 
+        "&& rm -rf /",
+        "`whoami`"
+      ]
+    },
+    
+    "malformed_requests": {
+      "oversized_payload": {
+        "description": "Request with extremely large payload",
+        "point_id": "oversized_test",
+        "features": "ARRAY_OF_100000_ELEMENTS",
+        "expected_response": "413_or_422"
+      },
+      
+      "malformed_json": [
+        "{invalid_json: true}",
+        "{'single_quotes': 'not_valid'}",
+        "{\"unclosed_object\": true",
+        "not_json_at_all"
+      ],
+      
+      "invalid_types": {
+        "point_id": 12345,
+        "features": "not_an_array",
+        "session_id": {"invalid": "type"}
+      }
+    }
+  },
+  
+  "performance_benchmarks": {
+    "throughput_targets": {
+      "single_point_processing": {
+        "target_ms": 5.0,
+        "max_acceptable_ms": 50.0
+      },
+      
+      "batch_processing": {
+        "target_points_per_second": 1000,
+        "min_acceptable_points_per_second": 100
+      },
+      
+      "concurrent_processing": {
+        "target_concurrent_sessions": 10,
+        "max_response_time_ms": 1000
+      }
+    },
+    
+    "memory_targets": {
+      "max_memory_per_point_kb": 1.0,
+      "max_total_memory_mb": 512,
+      "memory_growth_limit_percent": 200
+    },
+    
+    "stress_test_parameters": {
+      "load_test_duration_seconds": 300,
+      "max_concurrent_users": 100,
+      "ramp_up_time_seconds": 60,
+      "requests_per_user_per_second": 10
+    }
+  },
+  
+  "api_test_scenarios": {
+    "happy_path_flows": [
+      {
+        "name": "complete_clustering_workflow",
+        "steps": [
+          {"action": "authenticate", "endpoint": "/auth/login"},
+          {"action": "create_session", "endpoint": "/session"},
+          {"action": "process_batch", "endpoint": "/process-batch", "data": "clustered_dataset"},
+          {"action": "get_clusters", "endpoint": "/clusters"},
+          {"action": "get_statistics", "endpoint": "/statistics"},
+          {"action": "export_results", "endpoint": "/export/session/{session_id}"}
+        ]
+      }
+    ],
+    
+    "error_scenarios": [
+      {
+        "name": "unauthorized_access_attempt",
+        "steps": [
+          {"action": "process_without_auth", "endpoint": "/process-point", "expected_status": 401}
+        ]
+      },
+      
+      {
+        "name": "invalid_data_submission",
+        "steps": [
+          {"action": "authenticate", "endpoint": "/auth/login"},
+          {"action": "submit_invalid_data", "endpoint": "/process-point", "expected_status": 422}
+        ]
+      }
+    ]
+  },
+  
+  "edge_case_data": {
+    "boundary_conditions": {
+      "empty_features": {"id": "empty", "features": []},
+      "single_feature": {"id": "single", "features": [1.0]},
+      "zero_values": {"id": "zeros", "features": [0.0, 0.0, 0.0]},
+      "negative_values": {"id": "negative", "features": [-1.0, -2.0, -3.0]},
+      "very_large_values": {"id": "large", "features": [1e10, 1e10, 1e10]},
+      "very_small_values": {"id": "small", "features": [1e-10, 1e-10, 1e-10]},
+      "identical_features": {"id": "identical", "features": [5.0, 5.0, 5.0]}
+    },
+    
+    "special_numeric_values": {
+      "infinity_test": {"id": "inf", "features": [1.0, "Infinity", 3.0], "should_reject": true},
+      "negative_infinity": {"id": "neg_inf", "features": [1.0, "-Infinity", 3.0], "should_reject": true},
+      "nan_test": {"id": "nan", "features": [1.0, "NaN", 3.0], "should_reject": true},
+      "mixed_invalid": {"id": "mixed", "features": ["NaN", "Infinity", 1.0], "should_reject": true}
+    },
+    
+    "string_tests": {
+      "numeric_strings": {"id": "num_str", "features": ["1.0", "2.0", "3.0"], "should_convert": true},
+      "non_numeric_strings": {"id": "str", "features": ["a", "b", "c"], "should_reject": true},
+      "mixed_types": {"id": "mixed", "features": [1.0, "2.0", 3], "behavior": "depends_on_validation"}
+    }
+  },
+  
+  "regression_test_data": {
+    "known_issues": [
+      {
+        "issue_id": "NCS-001",
+        "description": "Algorithm fails with identical points",
+        "test_data": [
+          {"id": "dup1", "features": [1.0, 1.0, 1.0]},
+          {"id": "dup2", "features": [1.0, 1.0, 1.0]},
+          {"id": "dup3", "features": [1.0, 1.0, 1.0]}
+        ],
+        "expected_behavior": "should_handle_gracefully",
+        "fixed_in_version": "1.0.0"
+      }
+    ],
+    
+    "algorithm_edge_cases": [
+      {
+        "case_name": "single_point_cluster",
+        "data": [{"id": "lone", "features": [1.0, 2.0, 3.0]}],
+        "config": {"min_cluster_size": 1},
+        "expected_clusters": 1
+      },
+      
+      {
+        "case_name": "all_points_outliers",
+        "data": [
+          {"id": "out1", "features": [1.0, 1.0, 1.0]},
+          {"id": "out2", "features": [100.0, 100.0, 100.0]}, 
+          {"id": "out3", "features": [-100.0, -100.0, -100.0]}
+        ],
+        "config": {"outlier_threshold": 0.1},
+        "expected_outliers": 3
+      }
+    ]
+  },
+  
+  "integration_test_data": {
+    "multi_session_workflow": {
+      "session_1": {
+        "data": "small_dataset",
+        "config": "default_config",
+        "expected_clusters": 2
+      },
+      "session_2": {
+        "data": "clustered_dataset", 
+        "config": "strict_config",
+        "expected_clusters": 3
+      }
+    },
+    
+    "concurrent_user_simulation": {
+      "user_count": 5,
+      "actions_per_user": 10,
+      "data_per_action": "small_dataset",
+      "expected_success_rate": 0.95
+    }
+  }
+}

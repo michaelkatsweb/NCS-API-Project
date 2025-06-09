@@ -1,0 +1,105 @@
+# NeuroCluster Streamer API - Kubernetes Namespace
+# ================================================
+# Namespace definition for NCS API deployment
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ncs-api
+  labels:
+    app.kubernetes.io/name: ncs-api
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/component: namespace
+    app.kubernetes.io/part-of: neurocluster-streamer
+    app.kubernetes.io/managed-by: kubectl
+    environment: production
+    tier: application
+  annotations:
+    description: "NeuroCluster Streamer API application namespace"
+    contact: "ncs-team@company.com"
+    documentation: "https://docs.ncs-api.com"
+
+---
+# Resource Quota for the namespace
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: ncs-api-quota
+  namespace: ncs-api
+  labels:
+    app.kubernetes.io/name: ncs-api
+    app.kubernetes.io/component: quota
+spec:
+  hard:
+    # Compute resources
+    requests.cpu: "8"
+    requests.memory: 16Gi
+    limits.cpu: "16"
+    limits.memory: 32Gi
+    
+    # Storage resources
+    requests.storage: 100Gi
+    persistentvolumeclaims: "10"
+    
+    # Object count limits
+    pods: "50"
+    services: "10"
+    secrets: "20"
+    configmaps: "20"
+    replicationcontrollers: "10"
+    deployments.apps: "10"
+    replicasets.apps: "20"
+
+---
+# Network Policy for security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ncs-api-network-policy
+  namespace: ncs-api
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ncs-api
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow traffic from ingress controller
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8000
+  # Allow traffic from monitoring namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8001
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+  # Allow database access
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: postgres
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow Redis access
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: redis
+    ports:
+    - protocol: TCP
+      port: 6379

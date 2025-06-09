@@ -1,0 +1,409 @@
+# NeuroCluster Streamer API - Prometheus Recording Rules
+# ====================================================
+# Pre-computed metrics for improved dashboard performance and SLI/SLO tracking
+#
+# Recording Rule Categories:
+# - SLI metrics for Service Level Objectives
+# - Performance aggregations for dashboards
+# - Business metrics derived from technical metrics
+# - Cost and efficiency calculations
+# - Multi-dimensional aggregations
+#
+# Naming Convention:
+# - level:metric:rate[time] - Aggregation level and time window
+# - instance:metric:ratio - Per-instance calculations
+# - job:metric:rate[time] - Per-job aggregations
+#
+# Author: NCS API Development Team
+# Year: 2025
+
+groups:
+# =============================================================================
+# Service Level Indicators (SLI) for SLO Tracking
+# =============================================================================
+- name: sli.rules
+  interval: 30s
+  rules:
+  # API Availability SLI
+  - record: sli:ncs_api_availability:rate5m
+    expr: |
+      rate(ncs_api_http_requests_total{status!~"5.."}[5m]) /
+      rate(ncs_api_http_requests_total[5m])
+
+  - record: sli:ncs_api_availability:rate1h
+    expr: |
+      rate(ncs_api_http_requests_total{status!~"5.."}[1h]) /
+      rate(ncs_api_http_requests_total[1h])
+
+  - record: sli:ncs_api_availability:rate24h
+    expr: |
+      rate(ncs_api_http_requests_total{status!~"5.."}[24h]) /
+      rate(ncs_api_http_requests_total[24h])
+
+  # API Latency SLI (P95 < 500ms)
+  - record: sli:ncs_api_latency_p95:rate5m
+    expr: |
+      histogram_quantile(0.95,
+        rate(ncs_api_http_request_duration_seconds_bucket[5m])
+      )
+
+  - record: sli:ncs_api_latency_p99:rate5m
+    expr: |
+      histogram_quantile(0.99,
+        rate(ncs_api_http_request_duration_seconds_bucket[5m])
+      )
+
+  # Latency SLI Boolean (1 if meeting SLO, 0 if not)
+  - record: sli:ncs_api_latency_slo:rate5m
+    expr: |
+      (
+        histogram_quantile(0.95,
+          rate(ncs_api_http_request_duration_seconds_bucket[5m])
+        ) < 0.5
+      )
+
+  # Algorithm Performance SLI
+  - record: sli:ncs_algorithm_throughput:rate5m
+    expr: rate(ncs_algorithm_points_processed_total[5m])
+
+  - record: sli:ncs_algorithm_quality:latest
+    expr: ncs_algorithm_clustering_quality
+
+  # Error Budget Burn Rate (for SLO alerting)
+  - record: sli:ncs_api_error_budget_burn_rate:rate5m
+    expr: |
+      (1 - sli:ncs_api_availability:rate5m) / (1 - 0.999)
+
+  - record: sli:ncs_api_error_budget_burn_rate:rate1h
+    expr: |
+      (1 - sli:ncs_api_availability:rate1h) / (1 - 0.999)
+
+# =============================================================================
+# Performance Aggregations
+# =============================================================================
+- name: performance.rules
+  interval: 30s
+  rules:
+  # Request rate aggregations
+  - record: instance:ncs_api_request_rate:rate5m
+    expr: rate(ncs_api_http_requests_total[5m])
+
+  - record: job:ncs_api_request_rate:rate5m
+    expr: sum(rate(ncs_api_http_requests_total[5m])) by (job)
+
+  - record: endpoint:ncs_api_request_rate:rate5m
+    expr: |
+      sum(rate(ncs_api_http_requests_total[5m])) by (endpoint, method)
+
+  # Error rate aggregations
+  - record: instance:ncs_api_error_rate:rate5m
+    expr: |
+      rate(ncs_api_http_requests_total{status=~"5.."}[5m]) /
+      rate(ncs_api_http_requests_total[5m])
+
+  - record: job:ncs_api_error_rate:rate5m
+    expr: |
+      sum(rate(ncs_api_http_requests_total{status=~"5.."}[5m])) by (job) /
+      sum(rate(ncs_api_http_requests_total[5m])) by (job)
+
+  # Latency percentiles by endpoint
+  - record: endpoint:ncs_api_latency_p50:rate5m
+    expr: |
+      histogram_quantile(0.50,
+        sum(rate(ncs_api_http_request_duration_seconds_bucket[5m])) by (endpoint, le)
+      )
+
+  - record: endpoint:ncs_api_latency_p95:rate5m
+    expr: |
+      histogram_quantile(0.95,
+        sum(rate(ncs_api_http_request_duration_seconds_bucket[5m])) by (endpoint, le)
+      )
+
+  - record: endpoint:ncs_api_latency_p99:rate5m
+    expr: |
+      histogram_quantile(0.99,
+        sum(rate(ncs_api_http_request_duration_seconds_bucket[5m])) by (endpoint, le)
+      )
+
+  # Resource utilization ratios
+  - record: instance:ncs_api_cpu_utilization:rate5m
+    expr: |
+      rate(process_cpu_seconds_total{job="ncs-api"}[5m]) * 100
+
+  - record: instance:ncs_api_memory_utilization:ratio
+    expr: |
+      process_resident_memory_bytes{job="ncs-api"} /
+      (2 * 1024 * 1024 * 1024)
+
+  # Connection utilization
+  - record: instance:ncs_api_connection_utilization:ratio
+    expr: |
+      ncs_api_active_connections /
+      ncs_api_max_connections
+
+# =============================================================================
+# Algorithm Performance Metrics
+# =============================================================================
+- name: algorithm.rules
+  interval: 30s
+  rules:
+  # Processing throughput over different time windows
+  - record: algorithm:ncs_throughput:rate1m
+    expr: rate(ncs_algorithm_points_processed_total[1m])
+
+  - record: algorithm:ncs_throughput:rate5m
+    expr: rate(ncs_algorithm_points_processed_total[5m])
+
+  - record: algorithm:ncs_throughput:rate1h
+    expr: rate(ncs_algorithm_points_processed_total[1h])
+
+  # Processing efficiency (points per second per CPU core)
+  - record: algorithm:ncs_efficiency:rate5m
+    expr: |
+      rate(ncs_algorithm_points_processed_total[5m]) /
+      (rate(process_cpu_seconds_total{job="ncs-api"}[5m]) + 0.01)
+
+  # Cluster management efficiency
+  - record: algorithm:ncs_cluster_density:ratio
+    expr: |
+      ncs_algorithm_total_points /
+      (ncs_algorithm_active_clusters + 1)
+
+  - record: algorithm:ncs_cluster_utilization:ratio
+    expr: |
+      ncs_algorithm_active_clusters /
+      ncs_algorithm_max_clusters
+
+  # Quality trend (5-minute moving average)
+  - record: algorithm:ncs_quality_trend:avg5m
+    expr: |
+      avg_over_time(ncs_algorithm_clustering_quality[5m])
+
+  # Error rates by type
+  - record: algorithm:ncs_error_rate:rate5m
+    expr: |
+      rate(ncs_algorithm_errors_total[5m]) /
+      rate(ncs_algorithm_points_processed_total[5m])
+
+  # Memory efficiency (points processed per MB of memory)
+  - record: algorithm:ncs_memory_efficiency:rate5m
+    expr: |
+      rate(ncs_algorithm_points_processed_total[5m]) /
+      (process_resident_memory_bytes{job="ncs-api"} / (1024 * 1024))
+
+# =============================================================================
+# Business Metrics
+# =============================================================================
+- name: business.rules
+  interval: 60s
+  rules:
+  # Revenue per request
+  - record: business:ncs_revenue_per_request:rate1h
+    expr: |
+      rate(ncs_business_revenue_total[1h]) /
+      rate(ncs_api_http_requests_total{status=~"2.."}[1h])
+
+  # Cost efficiency metrics
+  - record: business:ncs_cost_per_point:rate1h
+    expr: |
+      rate(ncs_business_processing_cost_total[1h]) /
+      rate(ncs_algorithm_points_processed_total[1h])
+
+  - record: business:ncs_profit_margin:rate1h
+    expr: |
+      (
+        rate(ncs_business_revenue_total[1h]) -
+        rate(ncs_business_processing_cost_total[1h])
+      ) /
+      rate(ncs_business_revenue_total[1h])
+
+  # Customer satisfaction proxy (low error rate + fast response)
+  - record: business:ncs_customer_satisfaction:rate5m
+    expr: |
+      (
+        sli:ncs_api_availability:rate5m * 0.6 +
+        (1 - (sli:ncs_api_latency_p95:rate5m / 2)) * 0.4
+      )
+
+  # Processing value efficiency
+  - record: business:ncs_value_per_cpu_second:rate1h
+    expr: |
+      rate(ncs_business_value_generated_total[1h]) /
+      rate(process_cpu_seconds_total{job="ncs-api"}[1h])
+
+  # Daily aggregations for reporting
+  - record: business:ncs_daily_requests:sum24h
+    expr: |
+      increase(ncs_api_http_requests_total{status=~"2.."}[24h])
+
+  - record: business:ncs_daily_points_processed:sum24h
+    expr: |
+      increase(ncs_algorithm_points_processed_total[24h])
+
+  - record: business:ncs_daily_revenue:sum24h
+    expr: |
+      increase(ncs_business_revenue_total[24h])
+
+# =============================================================================
+# Infrastructure Aggregations
+# =============================================================================
+- name: infrastructure.rules
+  interval: 60s
+  rules:
+  # Database performance
+  - record: database:postgres_query_duration_p95:rate5m
+    expr: |
+      histogram_quantile(0.95,
+        rate(pg_stat_statements_mean_time_seconds_bucket[5m])
+      )
+
+  - record: database:postgres_connection_utilization:ratio
+    expr: |
+      pg_stat_database_numbackends /
+      pg_settings_max_connections
+
+  - record: database:postgres_cache_hit_ratio:rate5m
+    expr: |
+      rate(pg_stat_database_blks_hit[5m]) /
+      (rate(pg_stat_database_blks_hit[5m]) + rate(pg_stat_database_blks_read[5m]))
+
+  # Redis performance
+  - record: cache:redis_hit_ratio:rate5m
+    expr: |
+      rate(redis_keyspace_hits_total[5m]) /
+      (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m]))
+
+  - record: cache:redis_memory_utilization:ratio
+    expr: |
+      redis_memory_used_bytes /
+      redis_memory_max_bytes
+
+  - record: cache:redis_ops_per_second:rate5m
+    expr: |
+      rate(redis_commands_processed_total[5m])
+
+  # Kubernetes metrics
+  - record: k8s:pod_cpu_utilization:rate5m
+    expr: |
+      rate(container_cpu_usage_seconds_total{pod=~"ncs-api-.*"}[5m]) /
+      (container_spec_cpu_quota{pod=~"ncs-api-.*"} / container_spec_cpu_period{pod=~"ncs-api-.*"})
+
+  - record: k8s:pod_memory_utilization:ratio
+    expr: |
+      container_memory_usage_bytes{pod=~"ncs-api-.*"} /
+      container_spec_memory_limit_bytes{pod=~"ncs-api-.*"}
+
+# =============================================================================
+# Multi-dimensional Aggregations
+# =============================================================================
+- name: aggregations.rules
+  interval: 60s
+  rules:
+  # Geographic distribution (if available)
+  - record: geo:ncs_api_requests_by_region:rate5m
+    expr: |
+      sum(rate(ncs_api_http_requests_total[5m])) by (region)
+
+  # Time-based patterns
+  - record: time:ncs_api_hourly_pattern:avg
+    expr: |
+      avg_over_time(
+        sum(rate(ncs_api_http_requests_total[5m]))[1h:5m]
+      )
+
+  # Version comparison (for A/B testing or canary deployments)
+  - record: version:ncs_api_performance_by_version:rate5m
+    expr: |
+      avg(rate(ncs_api_http_requests_total[5m])) by (version)
+
+  # Client type analysis
+  - record: client:ncs_api_requests_by_client:rate5m
+    expr: |
+      sum(rate(ncs_api_http_requests_total[5m])) by (client_type)
+
+  # Feature usage tracking
+  - record: feature:ncs_api_feature_usage:rate1h
+    expr: |
+      sum(rate(ncs_api_feature_requests_total[1h])) by (feature)
+
+# =============================================================================
+# Capacity Planning Metrics
+# =============================================================================
+- name: capacity.rules
+  interval: 300s  # 5 minutes
+  rules:
+  # Growth rates
+  - record: capacity:ncs_api_request_growth_rate:week
+    expr: |
+      (
+        rate(ncs_api_http_requests_total[7d]) -
+        rate(ncs_api_http_requests_total[7d] offset 7d)
+      ) /
+      rate(ncs_api_http_requests_total[7d] offset 7d)
+
+  - record: capacity:ncs_algorithm_throughput_growth:week
+    expr: |
+      (
+        rate(ncs_algorithm_points_processed_total[7d]) -
+        rate(ncs_algorithm_points_processed_total[7d] offset 7d)
+      ) /
+      rate(ncs_algorithm_points_processed_total[7d] offset 7d)
+
+  # Resource headroom
+  - record: capacity:ncs_api_cpu_headroom:ratio
+    expr: |
+      1 - max(instance:ncs_api_cpu_utilization:rate5m) / 100
+
+  - record: capacity:ncs_api_memory_headroom:ratio
+    expr: |
+      1 - max(instance:ncs_api_memory_utilization:ratio)
+
+  # Saturation points prediction
+  - record: capacity:ncs_api_saturation_risk:score
+    expr: |
+      (
+        (1 - capacity:ncs_api_cpu_headroom:ratio) * 0.4 +
+        (1 - capacity:ncs_api_memory_headroom:ratio) * 0.3 +
+        (instance:ncs_api_connection_utilization:ratio) * 0.3
+      )
+
+# =============================================================================
+# Recording Rules Usage Notes
+# =============================================================================
+#
+# These recording rules provide:
+#
+# 1. SLI/SLO Tracking:
+#    - Pre-computed availability and latency metrics
+#    - Error budget burn rate calculations
+#    - Multi-window aggregations for trend analysis
+#
+# 2. Performance Optimization:
+#    - Expensive percentile calculations
+#    - Multi-dimensional aggregations
+#    - Time-series smoothing and trending
+#
+# 3. Business Intelligence:
+#    - Cost and revenue per unit metrics
+#    - Customer satisfaction proxies
+#    - Daily/weekly summaries for reporting
+#
+# 4. Capacity Planning:
+#    - Growth rate calculations
+#    - Resource utilization trending
+#    - Saturation risk scoring
+#
+# 5. Operational Efficiency:
+#    - Algorithm efficiency metrics
+#    - Infrastructure utilization ratios
+#    - Feature usage analytics
+#
+# Usage in Dashboards:
+#   Use these pre-computed metrics instead of raw metrics
+#   for better performance and consistency across dashboards.
+#
+# Usage in Alerts:
+#   Use SLI metrics for SLO-based alerting
+#   Use burn rate metrics for early warning alerts
+#
+# =============================================================================

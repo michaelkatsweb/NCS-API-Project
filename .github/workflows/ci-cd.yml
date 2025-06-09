@@ -1,0 +1,798 @@
+# NeuroCluster Streamer API - CI/CD Pipeline
+# ==========================================
+# 
+# Comprehensive CI/CD pipeline for the NCS API supporting:
+# - Multi-environment testing and deployment
+# - Security scanning and vulnerability assessment
+# - Performance testing and benchmarking
+# - Docker image building and registry management
+# - Kubernetes and cloud platform deployment
+# - Documentation deployment and validation
+# 
+# Environments:
+# - Development: Feature branches and pull requests
+# - Staging: Develop branch merges
+# - Production: Main branch releases and tags
+#
+# Author: NCS API Development Team
+# Year: 2025
+
+name: 'NCS API CI/CD Pipeline'
+
+on:
+  # Trigger on push to main branches
+  push:
+    branches:
+      - main
+      - develop
+      - 'release/*'
+      - 'hotfix/*'
+    tags:
+      - 'v*'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
+  
+  # Trigger on pull requests
+  pull_request:
+    branches:
+      - main
+      - develop
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
+  
+  # Manual workflow dispatch
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      skip_tests:
+        description: 'Skip tests (emergency deployment only)'
+        required: false
+        default: false
+        type: boolean
+      force_deploy:
+        description: 'Force deployment (bypass checks)'
+        required: false
+        default: false
+        type: boolean
+
+# Global environment variables
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+  DOCKER_REGISTRY: ghcr.io
+  IMAGE_NAME: ncs-api
+  KUBECONFIG_PATH: ~/.kube/config
+
+# Cancel in-progress runs for the same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # =============================================================================
+  # Code Quality and Security Checks
+  # =============================================================================
+  
+  code-quality:
+    name: 'Code Quality & Security'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better analysis
+      
+      - name: 'Setup Python'
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: 'Install Dependencies'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+      
+      - name: 'Code Formatting Check (Black)'
+        run: |
+          black --check --diff .
+          echo "✅ Code formatting is correct"
+      
+      - name: 'Import Sorting Check (isort)'
+        run: |
+          isort --check-only --diff .
+          echo "✅ Import sorting is correct"
+      
+      - name: 'Linting (flake8)'
+        run: |
+          flake8 . --statistics --tee --output-file=flake8-report.txt
+          echo "✅ Linting passed"
+      
+      - name: 'Type Checking (mypy)'
+        run: |
+          mypy . --ignore-missing-imports --install-types --non-interactive
+          echo "✅ Type checking passed"
+      
+      - name: 'Security Scan (bandit)'
+        run: |
+          bandit -r . -f json -o bandit-report.json || true
+          bandit -r . -f txt
+          echo "✅ Security scan completed"
+      
+      - name: 'Dependency Vulnerability Check'
+        run: |
+          pip install safety
+          safety check --json --output safety-report.json || true
+          safety check
+          echo "✅ Dependency security check completed"
+      
+      - name: 'Upload Code Quality Reports'
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: code-quality-reports
+          path: |
+            flake8-report.txt
+            bandit-report.json
+            safety-report.json
+          retention-days: 30
+
+  # =============================================================================
+  # Unit and Integration Testing
+  # =============================================================================
+  
+  test-suite:
+    name: 'Test Suite'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12']
+        test-type: ['unit', 'integration']
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_USER: test_user
+          POSTGRES_DB: ncs_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v4
+      
+      - name: 'Setup Python ${{ matrix.python-version }}'
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+      
+      - name: 'Install Dependencies'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+      
+      - name: 'Setup Test Environment'
+        run: |
+          cp .env.example .env.test
+          echo "ENVIRONMENT=testing" >> .env.test
+          echo "DATABASE_URL=postgresql://test_user:test_password@localhost:5432/ncs_test" >> .env.test
+          echo "REDIS_URL=redis://localhost:6379/1" >> .env.test
+          echo "SECRET_KEY=test-secret-key-for-ci-cd-only" >> .env.test
+      
+      - name: 'Database Migration'
+        run: |
+          python database/migrate.py --env testing
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/ncs_test
+      
+      - name: 'Run Unit Tests'
+        if: matrix.test-type == 'unit'
+        run: |
+          pytest tests/ \
+            --cov=app \
+            --cov=auth \
+            --cov=middleware \
+            --cov-report=xml \
+            --cov-report=html \
+            --cov-report=term-missing \
+            --cov-fail-under=85 \
+            --junitxml=pytest-unit-results.xml \
+            -v \
+            --tb=short \
+            --durations=10 \
+            -m "not integration and not performance"
+      
+      - name: 'Run Integration Tests'
+        if: matrix.test-type == 'integration'
+        run: |
+          pytest tests/integration/ \
+            --junitxml=pytest-integration-results.xml \
+            -v \
+            --tb=short \
+            --durations=10
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/ncs_test
+          REDIS_URL: redis://localhost:6379/1
+      
+      - name: 'Upload Test Results'
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.python-version }}-${{ matrix.test-type }}
+          path: |
+            pytest-*-results.xml
+            htmlcov/
+            coverage.xml
+          retention-days: 30
+      
+      - name: 'Upload Coverage to Codecov'
+        if: matrix.test-type == 'unit' && matrix.python-version == '3.11'
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+  # =============================================================================
+  # Performance Testing
+  # =============================================================================
+  
+  performance-test:
+    name: 'Performance Testing'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [code-quality, test-suite]
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: perf_password
+          POSTGRES_USER: perf_user
+          POSTGRES_DB: ncs_perf
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v4
+      
+      - name: 'Setup Python'
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: 'Install Dependencies'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+      
+      - name: 'Setup Performance Test Environment'
+        run: |
+          cp .env.example .env.perf
+          echo "ENVIRONMENT=performance" >> .env.perf
+          echo "DATABASE_URL=postgresql://perf_user:perf_password@localhost:5432/ncs_perf" >> .env.perf
+          echo "REDIS_URL=redis://localhost:6379/2" >> .env.perf
+          echo "SECRET_KEY=perf-secret-key-for-ci-cd-only" >> .env.perf
+          echo "LOG_LEVEL=WARNING" >> .env.perf
+      
+      - name: 'Start API Server'
+        run: |
+          python main_secure.py &
+          API_PID=$!
+          echo "API_PID=$API_PID" >> $GITHUB_ENV
+          
+          # Wait for server to start
+          for i in {1..30}; do
+            if curl -f http://localhost:8000/health >/dev/null 2>&1; then
+              echo "✅ API server is ready"
+              break
+            fi
+            echo "⏳ Waiting for API server... ($i/30)"
+            sleep 2
+          done
+        env:
+          DATABASE_URL: postgresql://perf_user:perf_password@localhost:5432/ncs_perf
+          REDIS_URL: redis://localhost:6379/2
+      
+      - name: 'Run Performance Tests'
+        run: |
+          pytest tests/performance_test.py \
+            --benchmark-json=performance-results.json \
+            --benchmark-min-rounds=5 \
+            --benchmark-max-time=300 \
+            -v \
+            --tb=short
+      
+      - name: 'Performance Regression Check'
+        run: |
+          python scripts/check_performance_regression.py \
+            --current-results performance-results.json \
+            --baseline-branch main \
+            --threshold 0.15
+      
+      - name: 'Stop API Server'
+        if: always()
+        run: |
+          if [ -n "${API_PID:-}" ]; then
+            kill $API_PID || true
+          fi
+      
+      - name: 'Upload Performance Results'
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-results
+          path: |
+            performance-results.json
+            performance-plots/
+          retention-days: 90
+
+  # =============================================================================
+  # Docker Image Building
+  # =============================================================================
+  
+  build-image:
+    name: 'Build Docker Image'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [code-quality, test-suite]
+    
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+    
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: 'Set up Docker Buildx'
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: network=host
+      
+      - name: 'Log in to Container Registry'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: 'Extract Metadata'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+          labels: |
+            org.opencontainers.image.title=NeuroCluster Streamer API
+            org.opencontainers.image.description=High-performance streaming clustering API
+            org.opencontainers.image.vendor=NCS Development Team
+            org.opencontainers.image.licenses=MIT
+      
+      - name: 'Build and Push Docker Image'
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            VCS_REF=${{ github.sha }}
+            ENVIRONMENT=production
+      
+      - name: 'Container Security Scan'
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+      
+      - name: 'Upload Trivy Results'
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+      
+      - name: 'Generate SBOM'
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+      
+      - name: 'Upload SBOM'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.spdx.json
+          retention-days: 90
+
+  # =============================================================================
+  # Staging Deployment
+  # =============================================================================
+  
+  deploy-staging:
+    name: 'Deploy to Staging'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [build-image, performance-test]
+    if: github.ref == 'refs/heads/develop' || github.event_name == 'workflow_dispatch'
+    environment:
+      name: staging
+      url: https://staging-api.yourdomain.com
+    
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v4
+      
+      - name: 'Setup Kubernetes CLI'
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+      
+      - name: 'Configure Kubernetes Access'
+        run: |
+          echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > ${{ env.KUBECONFIG_PATH }}
+          chmod 600 ${{ env.KUBECONFIG_PATH }}
+          export KUBECONFIG=${{ env.KUBECONFIG_PATH }}
+          kubectl cluster-info
+      
+      - name: 'Deploy to Staging'
+        run: |
+          export KUBECONFIG=${{ env.KUBECONFIG_PATH }}
+          ./scripts/deploy.sh k8s staging \
+            --image-tag=${{ github.sha }} \
+            --timeout=300
+        env:
+          REGISTRY_URL: ${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}
+          IMAGE_TAG: ${{ github.sha }}
+      
+      - name: 'Wait for Deployment'
+        run: |
+          export KUBECONFIG=${{ env.KUBECONFIG_PATH }}
+          kubectl rollout status deployment/ncs-api -n ncs-staging --timeout=300s
+      
+      - name: 'Health Check'
+        run: |
+          # Wait for service to be ready
+          sleep 30
+          
+          # Health check with retry
+          for i in {1..10}; do
+            if curl -f https://staging-api.yourdomain.com/health; then
+              echo "✅ Staging deployment health check passed"
+              exit 0
+            fi
+            echo "⏳ Health check failed, retrying... ($i/10)"
+            sleep 10
+          done
+          
+          echo "❌ Health check failed after 10 attempts"
+          exit 1
+      
+      - name: 'Smoke Tests'
+        run: |
+          pytest tests/smoke/ \
+            --base-url=https://staging-api.yourdomain.com \
+            --api-key="${{ secrets.STAGING_API_KEY }}" \
+            -v
+      
+      - name: 'Notify Slack'
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#deployments'
+          text: 'Staging deployment ${{ job.status }}: ${{ github.sha }}'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # =============================================================================
+  # Production Deployment
+  # =============================================================================
+  
+  deploy-production:
+    name: 'Deploy to Production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [build-image, deploy-staging]
+    if: |
+      github.ref == 'refs/heads/main' || 
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    environment:
+      name: production
+      url: https://api.yourdomain.com
+    
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v4
+      
+      - name: 'Production Deployment Approval'
+        if: github.event_name != 'workflow_dispatch' || !github.event.inputs.force_deploy
+        run: |
+          echo "🚨 Production deployment requires manual approval"
+          echo "Deployment will proceed automatically after approval in GitHub UI"
+      
+      - name: 'Setup Kubernetes CLI'
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+      
+      - name: 'Configure Kubernetes Access'
+        run: |
+          echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ${{ env.KUBECONFIG_PATH }}
+          chmod 600 ${{ env.KUBECONFIG_PATH }}
+          export KUBECONFIG=${{ env.KUBECONFIG_PATH }}
+          kubectl cluster-info
+      
+      - name: 'Pre-deployment Backup'
+        run: |
+          export KUBECONFIG=${{ env.KUBECONFIG_PATH }}
+          
+          # Backup current deployment
+          kubectl get deployment ncs-api -n ncs-production -o yaml > pre-deployment-backup.yaml
+          
+          # Store current image for rollback
+          CURRENT_IMAGE=$(kubectl get deployment ncs-api -n ncs-production -o jsonpath='{.spec.template.spec.containers[0].image}')
+          echo "ROLLBACK_IMAGE=$CURRENT_IMAGE" >> $GITHUB_ENV
+      
+      - name: 'Deploy to Production'
+        run: |
+          export KUBECONFIG=${{ env.KUBECONFIG_PATH }}
+          ./scripts/deploy.sh k8s production \
+            --image-tag=${{ github.sha }} \
+            --timeout=600 \
+            --health-check-timeout=300
+        env:
+          REGISTRY_URL: ${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}
+          IMAGE_TAG: ${{ github.sha }}
+      
+      - name: 'Wait for Rolling Update'
+        run: |
+          export KUBECONFIG=${{ env.KUBECONFIG_PATH }}
+          kubectl rollout status deployment/ncs-api -n ncs-production --timeout=600s
+      
+      - name: 'Production Health Check'
+        run: |
+          # Extended wait for production
+          sleep 60
+          
+          # Comprehensive health check
+          for i in {1..15}; do
+            if curl -f https://api.yourdomain.com/health; then
+              echo "✅ Production health check passed"
+              break
+            fi
+            echo "⏳ Production health check failed, retrying... ($i/15)"
+            sleep 20
+          done
+          
+          # Final verification
+          if ! curl -f https://api.yourdomain.com/health; then
+            echo "❌ Production health check failed - initiating rollback"
+            exit 1
+          fi
+      
+      - name: 'Production Smoke Tests'
+        run: |
+          pytest tests/smoke/ \
+            --base-url=https://api.yourdomain.com \
+            --api-key="${{ secrets.PRODUCTION_API_KEY }}" \
+            --timeout=30 \
+            -v
+      
+      - name: 'Update Release Notes'
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          # Extract changelog for this version
+          VERSION=${GITHUB_REF#refs/tags/v}
+          python scripts/generate_release_notes.py --version=$VERSION
+      
+      - name: 'Rollback on Failure'
+        if: failure()
+        run: |
+          echo "🚨 Production deployment failed - rolling back"
+          export KUBECONFIG=${{ env.KUBECONFIG_PATH }}
+          
+          kubectl set image deployment/ncs-api ncs-api=${{ env.ROLLBACK_IMAGE }} -n ncs-production
+          kubectl rollout status deployment/ncs-api -n ncs-production --timeout=300s
+          
+          echo "✅ Rollback completed to: ${{ env.ROLLBACK_IMAGE }}"
+      
+      - name: 'Notify Teams'
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#production-alerts'
+          text: |
+            🚀 Production deployment ${{ job.status }}
+            Version: ${{ github.sha }}
+            Deployer: ${{ github.actor }}
+            Commit: ${{ github.event.head_commit.message }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # =============================================================================
+  # Post-Deployment Monitoring
+  # =============================================================================
+  
+  post-deployment-monitoring:
+    name: 'Post-Deployment Monitoring'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [deploy-production]
+    if: success() && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v4
+      
+      - name: 'Setup Python'
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: 'Install Monitoring Tools'
+        run: |
+          pip install requests prometheus-client pandas matplotlib
+      
+      - name: 'Extended Health Monitoring'
+        run: |
+          python scripts/post_deployment_monitor.py \
+            --url=https://api.yourdomain.com \
+            --duration=1800 \
+            --interval=30 \
+            --api-key="${{ secrets.PRODUCTION_API_KEY }}"
+      
+      - name: 'Performance Baseline Update'
+        run: |
+          python scripts/update_performance_baseline.py \
+            --environment=production \
+            --version=${{ github.sha }}
+      
+      - name: 'Generate Deployment Report'
+        run: |
+          python scripts/generate_deployment_report.py \
+            --version=${{ github.sha }} \
+            --environment=production \
+            --output=deployment-report.html
+      
+      - name: 'Upload Deployment Report'
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-report
+          path: deployment-report.html
+          retention-days: 90
+
+  # =============================================================================
+  # Cleanup and Notification
+  # =============================================================================
+  
+  cleanup:
+    name: 'Cleanup & Notifications'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [deploy-production, post-deployment-monitoring]
+    if: always()
+    
+    steps:
+      - name: 'Calculate Pipeline Duration'
+        run: |
+          START_TIME="${{ github.event.head_commit.timestamp }}"
+          END_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          
+          # Convert to epoch and calculate duration
+          START_EPOCH=$(date -d "$START_TIME" +%s)
+          END_EPOCH=$(date -d "$END_TIME" +%s)
+          DURATION=$((END_EPOCH - START_EPOCH))
+          
+          echo "PIPELINE_DURATION=${DURATION}" >> $GITHUB_ENV
+          echo "Pipeline Duration: ${DURATION} seconds"
+      
+      - name: 'Cleanup Old Artifacts'
+        run: |
+          echo "🧹 Cleanup would run here for old artifacts and images"
+          # In a real implementation, this would clean up old container images
+          # and artifacts based on retention policies
+      
+      - name: 'Send Final Notification'
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ needs.deploy-production.result }}
+          channel: '#deployments'
+          text: |
+            🎉 CI/CD Pipeline Complete!
+            
+            📊 **Pipeline Summary:**
+            • Duration: ${{ env.PIPELINE_DURATION }}s
+            • Commit: ${{ github.sha }}
+            • Author: ${{ github.actor }}
+            • Environment: Production
+            • Status: ${{ needs.deploy-production.result }}
+            
+            🔗 [View Deployment](https://api.yourdomain.com)
+            🔗 [View Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

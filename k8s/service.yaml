@@ -1,0 +1,89 @@
+# NeuroCluster Streamer API - Kubernetes Services
+# ==============================================
+# Service definitions for NCS API and dependencies
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: ncs-api-service
+  namespace: ncs-api
+  labels:
+    app.kubernetes.io/name: ncs-api
+    app.kubernetes.io/component: service
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8001"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8000
+    targetPort: http
+    protocol: TCP
+  - name: metrics
+    port: 8001
+    targetPort: metrics
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: ncs-api
+    app.kubernetes.io/component: api
+
+---
+# PostgreSQL Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: ncs-api
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/component: service
+spec:
+  type: ClusterIP
+  ports:
+  - name: postgres
+    port: 5432
+    targetPort: postgres
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: postgres
+
+---
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: ncs-api
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/component: service
+spec:
+  type: ClusterIP
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: redis
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: redis
+
+---
+# Headless Service for StatefulSet (if needed)
+apiVersion: v1
+kind: Service
+metadata:
+  name: ncs-api-headless
+  namespace: ncs-api
+  labels:
+    app.kubernetes.io/name: ncs-api
+    app.kubernetes.io/component: headless-service
+spec:
+  clusterIP: None
+  ports:
+  - name: http
+    port: 8000
+    targetPort: http
+  selector:
+    app.kubernetes.io/name: ncs-api

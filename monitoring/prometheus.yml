@@ -1,0 +1,293 @@
+# NeuroCluster Streamer API - Prometheus Configuration
+# ==================================================
+# Comprehensive monitoring configuration for NCS API ecosystem
+#
+# This configuration monitors:
+# - NCS API application metrics
+# - System performance metrics
+# - Database and cache performance
+# - Security and audit events
+# - Custom business metrics
+#
+# Author: NCS API Development Team
+# Year: 2025
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+  external_labels:
+    cluster: 'ncs-production'
+    environment: 'production'
+    service: 'neurocluster-streamer'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+      scheme: http
+      timeout: 10s
+      api_version: v2
+
+# Load alerting and recording rules
+rule_files:
+  - "alert-rules.yml"
+  - "recording-rules.yml"
+
+# Scrape configuration
+scrape_configs:
+  # =============================================================================
+  # NCS API Application Metrics
+  # =============================================================================
+  - job_name: 'ncs-api'
+    scrape_interval: 5s
+    scrape_timeout: 10s
+    metrics_path: '/metrics'
+    honor_labels: false
+    static_configs:
+      - targets: 
+        - 'ncs-api:8001'
+        - 'ncs-api-service:8001'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '([^:]+):(.*)'
+        replacement: '${1}'
+      - target_label: service
+        replacement: 'ncs-api'
+      - target_label: component
+        replacement: 'application'
+    metric_relabel_configs:
+      # Rename FastAPI metrics for consistency
+      - source_labels: [__name__]
+        regex: 'fastapi_(.+)'
+        target_label: __name__
+        replacement: 'ncs_api_${1}'
+      # Add service labels to all metrics
+      - target_label: service_name
+        replacement: 'neurocluster-streamer-api'
+
+  # =============================================================================
+  # Algorithm Performance Metrics
+  # =============================================================================
+  - job_name: 'ncs-algorithm'
+    scrape_interval: 10s
+    metrics_path: '/algorithm/metrics'
+    static_configs:
+      - targets: ['ncs-api:8001']
+    metric_relabel_configs:
+      # Focus on algorithm-specific metrics
+      - source_labels: [__name__]
+        regex: 'ncs_algorithm_(.+)'
+        action: keep
+      - target_label: component
+        replacement: 'algorithm'
+
+  # =============================================================================
+  # Database Metrics (PostgreSQL)
+  # =============================================================================
+  - job_name: 'postgres-exporter'
+    scrape_interval: 30s
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    relabel_configs:
+      - target_label: service
+        replacement: 'postgresql'
+      - target_label: component
+        replacement: 'database'
+
+  # =============================================================================
+  # Redis Cache Metrics
+  # =============================================================================
+  - job_name: 'redis-exporter'
+    scrape_interval: 30s
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    relabel_configs:
+      - target_label: service
+        replacement: 'redis'
+      - target_label: component
+        replacement: 'cache'
+
+  # =============================================================================
+  # System Metrics (Node Exporter)
+  # =============================================================================
+  - job_name: 'node-exporter'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['node-exporter:9100']
+    relabel_configs:
+      - target_label: service
+        replacement: 'system'
+      - target_label: component
+        replacement: 'infrastructure'
+
+  # =============================================================================
+  # Kubernetes Metrics
+  # =============================================================================
+  - job_name: 'kubernetes-apiservers'
+    kubernetes_sd_configs:
+      - role: endpoints
+    scheme: https
+    tls_config:
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: default;kubernetes;https
+
+  - job_name: 'kubernetes-nodes'
+    kubernetes_sd_configs:
+      - role: node
+    scheme: https
+    tls_config:
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      - target_label: __address__
+        replacement: kubernetes.default.svc:443
+      - source_labels: [__meta_kubernetes_node_name]
+        regex: (.+)
+        target_label: __metrics_path__
+        replacement: /api/v1/nodes/${1}/proxy/metrics
+
+  - job_name: 'kubernetes-pods'
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: kubernetes_pod_name
+
+  # =============================================================================
+  # Load Balancer Metrics (NGINX Ingress)
+  # =============================================================================
+  - job_name: 'nginx-ingress'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['nginx-ingress-controller:10254']
+    relabel_configs:
+      - target_label: service
+        replacement: 'nginx-ingress'
+      - target_label: component
+        replacement: 'load-balancer'
+
+  # =============================================================================
+  # Prometheus Self-Monitoring
+  # =============================================================================
+  - job_name: 'prometheus'
+    scrape_interval: 30s
+    static_configs:
+      - targets: ['localhost:9090']
+    relabel_configs:
+      - target_label: service
+        replacement: 'prometheus'
+      - target_label: component
+        replacement: 'monitoring'
+
+  # =============================================================================
+  # Grafana Metrics
+  # =============================================================================
+  - job_name: 'grafana'
+    scrape_interval: 30s
+    static_configs:
+      - targets: ['grafana:3000']
+    metrics_path: '/metrics'
+    relabel_configs:
+      - target_label: service
+        replacement: 'grafana'
+      - target_label: component
+        replacement: 'visualization'
+
+  # =============================================================================
+  # BlackBox Exporter (External Endpoint Monitoring)
+  # =============================================================================
+  - job_name: 'blackbox-http'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+        - https://api.yourdomain.com/health
+        - https://ncs-api.yourdomain.com/health
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+      - target_label: service
+        replacement: 'external-endpoint'
+
+  # =============================================================================
+  # Custom Business Metrics
+  # =============================================================================
+  - job_name: 'business-metrics'
+    scrape_interval: 60s
+    metrics_path: '/business/metrics'
+    static_configs:
+      - targets: ['ncs-api:8001']
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'ncs_business_(.+)'
+        action: keep
+      - target_label: component
+        replacement: 'business-logic'
+
+# Storage configuration
+storage:
+  tsdb:
+    path: /prometheus/
+    retention.time: 30d
+    retention.size: 50GB
+    min-block-duration: 2h
+    max-block-duration: 25h
+
+# Web configuration
+web:
+  console.libraries: /etc/prometheus/console_libraries
+  console.templates: /etc/prometheus/consoles
+  enable-lifecycle: true
+  enable-admin-api: true
+  max-connections: 512
+
+# Remote write configuration (for long-term storage)
+# remote_write:
+#   - url: "https://prometheus-remote-storage.yourdomain.com/api/v1/write"
+#     basic_auth:
+#       username: "prometheus"
+#       password: "your-password"
+#     queue_config:
+#       max_samples_per_send: 1000
+#       max_shards: 200
+#       capacity: 2500
+
+# Remote read configuration
+# remote_read:
+#   - url: "https://prometheus-remote-storage.yourdomain.com/api/v1/read"
+#     basic_auth:
+#       username: "prometheus"
+#       password: "your-password"

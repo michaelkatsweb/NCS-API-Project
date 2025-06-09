@@ -1,0 +1,270 @@
+# NeuroCluster Streamer API - Grafana Prometheus Datasource Configuration
+# ========================================================================
+# Automatic provisioning of Prometheus datasource for Grafana
+#
+# This configuration:
+# - Sets up Prometheus as the primary datasource
+# - Configures connection settings and authentication
+# - Enables query caching and performance optimizations
+# - Sets up alerting integration
+# - Provides backup datasource configuration
+#
+# Place this file in: grafana/provisioning/datasources/
+# Author: NCS API Development Team
+# Year: 2025
+
+apiVersion: 1
+
+# Delete existing datasources before adding new ones
+deleteDatasources:
+  - name: Prometheus
+    orgId: 1
+
+# Datasource configuration
+datasources:
+  # =============================================================================
+  # Primary Prometheus Datasource
+  # =============================================================================
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    orgId: 1
+    uid: prometheus-main
+    url: http://prometheus:9090
+    isDefault: true
+    version: 1
+    editable: true
+    
+    # Basic authentication (if enabled)
+    # basicAuth: true
+    # basicAuthUser: prometheus
+    # secureJsonData:
+    #   basicAuthPassword: your-password
+    
+    # HTTP settings
+    httpMethod: POST
+    
+    # JSON data for additional configuration
+    jsonData:
+      # Query timeout
+      timeInterval: "15s"
+      queryTimeout: "60s"
+      
+      # HTTP configuration
+      httpHeaderName1: "X-Grafana-Org-Id"
+      keepCookies: []
+      
+      # Prometheus-specific settings
+      prometheusType: "Prometheus"
+      prometheusVersion: "2.40.0"
+      
+      # Query optimization
+      disableMetricsLookup: false
+      customQueryParameters: ""
+      
+      # Exemplars configuration
+      exemplarTraceIdDestinations:
+        - name: "trace_id"
+          datasourceUid: "jaeger-main"
+          url: "http://jaeger:16686/trace/${__value.raw}"
+      
+      # Cache settings
+      incrementalQuerying: true
+      incrementalQueryOverlapWindow: "10m"
+      
+      # Alert manager integration
+      manageAlerts: true
+      alertmanagerUid: "alertmanager-main"
+    
+    # Secure JSON data (for sensitive information)
+    secureJsonData:
+      # Add sensitive configuration here
+      # httpHeaderValue1: "sensitive-value"
+    
+    # Default queries and dashboard settings
+    metadata:
+      description: "Primary Prometheus datasource for NCS API monitoring"
+      tags:
+        - monitoring
+        - prometheus
+        - ncs-api
+
+  # =============================================================================
+  # Long-term Storage Prometheus (if using remote storage)
+  # =============================================================================
+  - name: Prometheus-LTS
+    type: prometheus
+    access: proxy
+    orgId: 1
+    uid: prometheus-lts
+    url: http://prometheus-lts:9090
+    isDefault: false
+    version: 1
+    editable: true
+    
+    jsonData:
+      timeInterval: "1m"
+      queryTimeout: "300s"
+      prometheusType: "Prometheus"
+      customQueryParameters: "max_source_resolution=1h"
+      
+    metadata:
+      description: "Long-term storage Prometheus for historical data"
+      tags:
+        - monitoring
+        - prometheus
+        - historical
+        - lts
+
+  # =============================================================================
+  # Alertmanager Datasource
+  # =============================================================================
+  - name: Alertmanager
+    type: alertmanager
+    access: proxy
+    orgId: 1
+    uid: alertmanager-main
+    url: http://alertmanager:9093
+    isDefault: false
+    version: 1
+    editable: true
+    
+    jsonData:
+      implementation: "prometheus"
+      handleGrafanaManagedAlerts: true
+      
+    metadata:
+      description: "Alertmanager for managing alerts and notifications"
+      tags:
+        - alerting
+        - notifications
+
+  # =============================================================================
+  # Jaeger Tracing Datasource (Optional)
+  # =============================================================================
+  # - name: Jaeger
+  #   type: jaeger
+  #   access: proxy
+  #   orgId: 1
+  #   uid: jaeger-main
+  #   url: http://jaeger:16686
+  #   isDefault: false
+  #   version: 1
+  #   editable: true
+  #   
+  #   jsonData:
+  #     tracesToLogsV2:
+  #       datasourceUid: "loki-main"
+  #       spanStartTimeShift: "-1h"
+  #       spanEndTimeShift: "1h"
+  #       tags:
+  #         - key: "service.name"
+  #           value: "service_name"
+  #       filterByTraceID: false
+  #       filterBySpanID: false
+  #       customQuery: true
+  #       query: '{service_name="${__span.tags["service.name"]}"} |= "${__span.traceID}"'
+  #   
+  #   metadata:
+  #     description: "Jaeger tracing for distributed request tracking"
+  #     tags:
+  #       - tracing
+  #       - distributed
+  #       - jaeger
+
+  # =============================================================================
+  # Loki Logs Datasource (Optional)
+  # =============================================================================
+  # - name: Loki
+  #   type: loki
+  #   access: proxy
+  #   orgId: 1
+  #   uid: loki-main
+  #   url: http://loki:3100
+  #   isDefault: false
+  #   version: 1
+  #   editable: true
+  #   
+  #   jsonData:
+  #     maxLines: 1000
+  #     derivedFields:
+  #       - datasourceUid: "jaeger-main"
+  #         matcherRegex: "trace_id=(\\w+)"
+  #         name: "TraceID"
+  #         url: "http://jaeger:16686/trace/${__value.raw}"
+  #   
+  #   metadata:
+  #     description: "Loki for centralized log aggregation"
+  #     tags:
+  #       - logging
+  #       - loki
+  #       - aggregation
+
+  # =============================================================================
+  # TestData Datasource (for testing and development)
+  # =============================================================================
+  - name: TestData
+    type: testdata
+    access: proxy
+    orgId: 1
+    uid: testdata-main
+    isDefault: false
+    version: 1
+    editable: true
+    
+    metadata:
+      description: "Test data source for development and testing"
+      tags:
+        - testing
+        - development
+        - mock-data
+
+# =============================================================================
+# Datasource Configuration Notes
+# =============================================================================
+#
+# This configuration provides:
+#
+# 1. Primary Prometheus Datasource:
+#    - Default datasource for all dashboards
+#    - Optimized query settings for performance
+#    - Exemplar support for trace correlation
+#    - Cache settings for improved response times
+#
+# 2. Optional Long-term Storage:
+#    - For historical data analysis
+#    - Different query timeouts for large datasets
+#    - Custom query parameters for optimization
+#
+# 3. Alertmanager Integration:
+#    - Unified alert management
+#    - Grafana-managed alerts support
+#
+# 4. Extensibility:
+#    - Ready for tracing integration (Jaeger)
+#    - Prepared for log aggregation (Loki)
+#    - Test datasource for development
+#
+# Environment Variables (can be used in Docker):
+#   GF_SECURITY_ADMIN_USER: Admin username
+#   GF_SECURITY_ADMIN_PASSWORD: Admin password
+#   PROMETHEUS_URL: Prometheus server URL
+#   ALERTMANAGER_URL: Alertmanager server URL
+#
+# Volume Mounts Required:
+#   - This file should be mounted to: /etc/grafana/provisioning/datasources/
+#   - Grafana data: /var/lib/grafana
+#   - Dashboard provisioning: /etc/grafana/provisioning/dashboards/
+#
+# Usage in Docker Compose:
+#   volumes:
+#     - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+#     - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+#     - grafana-storage:/var/lib/grafana
+#
+# Usage in Kubernetes:
+#   - Create ConfigMap from this file
+#   - Mount as volume in Grafana deployment
+#   - Path: /etc/grafana/provisioning/datasources/prometheus-datasource.yaml
+#
+# =============================================================================

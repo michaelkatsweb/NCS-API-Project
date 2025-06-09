@@ -1,0 +1,562 @@
+# NeuroCluster Streamer API - Production Docker Compose Overrides
+# ===============================================================
+# Production environment overrides for docker-compose
+#
+# This file provides production-specific configurations:
+# - Security hardening and secrets management
+# - Performance optimization and resource limits
+# - Production monitoring and logging
+# - High availability and scaling configurations
+# - Backup and recovery settings
+#
+# Usage:
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs -f
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml down
+#
+# Prerequisites:
+#   - Set production environment variables
+#   - Configure external secrets management
+#   - Set up production monitoring
+#   - Configure backup solutions
+#
+# Author: NCS API Development Team
+# Year: 2025
+
+version: '3.8'
+
+services:
+  # =============================================================================
+  # Production API Service Overrides
+  # =============================================================================
+  ncs-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        ENVIRONMENT: production
+    container_name: ncs-api-prod
+    hostname: ncs-api-prod
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      # Core Configuration - Production
+      ENVIRONMENT: production
+      DEBUG: "false"
+      LOG_LEVEL: INFO
+      HOST: 0.0.0.0
+      PORT: 8000
+      WORKERS: 8
+      
+      # Database Configuration - Production
+      DATABASE_URL: ${DATABASE_URL}
+      DB_POOL_SIZE: 50
+      DB_MAX_OVERFLOW: 100
+      DB_POOL_TIMEOUT: 30
+      DB_ECHO: "false"
+      
+      # Redis Configuration - Production
+      REDIS_URL: ${REDIS_URL}
+      REDIS_POOL_SIZE: 100
+      CACHE_TTL_SECONDS: 3600
+      SESSION_TTL_SECONDS: 86400
+      
+      # Security Configuration - Production
+      SECRET_KEY: ${NCS_SECRET_KEY}
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      API_KEY_HEADER: X-API-Key
+      VALID_API_KEYS: ${NCS_API_KEYS}
+      
+      # CORS - Production (restrictive)
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://yourdomain.com}
+      
+      # Rate Limiting - Production
+      RATE_LIMIT_PER_MINUTE: 1000
+      BURST_LIMIT: 100
+      
+      # Algorithm Configuration - Production
+      NCS_BASE_THRESHOLD: 0.71
+      NCS_LEARNING_RATE: 0.06
+      NCS_MAX_CLUSTERS: 30
+      NCS_MEMORY_WARNING_THRESHOLD_MB: 1024
+      NCS_ENABLE_PROFILING: "false"
+      
+      # Monitoring - Production
+      PROMETHEUS_ENABLED: "true"
+      METRICS_PORT: 8001
+      ENABLE_DETAILED_METRICS: "true"
+      METRICS_RETENTION_DAYS: 30
+      
+      # Logging - Production
+      LOG_FORMAT: json
+      LOG_RETENTION_DAYS: 30
+      
+      # Health Checks
+      HEALTH_CHECK_INTERVAL: 30
+      HEALTH_CHECK_TIMEOUT: 10
+      
+      # Performance Tuning
+      UVICORN_WORKER_CLASS: uvicorn.workers.UvicornWorker
+      UVICORN_BACKLOG: 2048
+      UVICORN_MAX_REQUESTS: 10000
+      UVICORN_MAX_REQUESTS_JITTER: 1000
+      
+      # Disable Development Features
+      DOCS_URL: null
+      REDOC_URL: null
+      OPENAPI_URL: null
+      ENABLE_DEBUG_ENDPOINTS: "false"
+      DETAILED_LOGGING: "false"
+    volumes:
+      # Production volumes (read-only where possible)
+      - ncs_logs_prod:/app/logs
+      - ncs_data_prod:/app/data:rw
+      - ncs_backup:/app/backup:rw
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.5'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 30s
+        failure_action: rollback
+        monitor: 60s
+        max_failure_ratio: 0.3
+      rollback_config:
+        parallelism: 1
+        delay: 0s
+        failure_action: pause
+        monitor: 60s
+        max_failure_ratio: 0.3
+    networks:
+      - ncs-network-prod
+    command: >
+      uvicorn main_secure:app
+      --host 0.0.0.0
+      --port 8000
+      --workers 8
+      --worker-class uvicorn.workers.UvicornWorker
+      --access-log
+      --log-level info
+      --no-server-header
+      --backlog 2048
+      --limit-max-requests 10000
+      --limit-max-requests-jitter 1000
+      --timeout-keep-alive 65
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+        labels: "service=ncs-api,environment=production"
+
+  # =============================================================================
+  # Production Database Overrides
+  # =============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: ncs-postgres-prod
+    hostname: postgres-prod
+    restart: always
+    ports:
+      - "5432"  # Not exposed externally in production
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ncs_prod}
+      POSTGRES_USER: ${POSTGRES_USER:-ncs_prod}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+      # Security settings
+      POSTGRES_HOST_AUTH_METHOD: md5
+    volumes:
+      # Production database storage
+      - postgres_data_prod:/var/lib/postgresql/data
+      # Backup directory
+      - postgres_backup:/backup
+      # Production PostgreSQL configuration
+      - ./postgres-prod.conf:/etc/postgresql/postgresql.conf:ro
+      # SSL certificates (if using SSL)
+      - ${SSL_CERT_PATH:-./ssl}:/var/lib/postgresql/ssl:ro
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 2G
+          cpus: '1.0'
+    networks:
+      - ncs-network-prod
+    command: >
+      postgres
+      -c config_file=/etc/postgresql/postgresql.conf
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.track=all
+      -c max_connections=500
+      -c shared_buffers=1GB
+      -c effective_cache_size=3GB
+      -c maintenance_work_mem=256MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=64MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=4MB
+      -c huge_pages=try
+      -c max_wal_size=4GB
+      -c min_wal_size=1GB
+      -c log_min_duration_statement=1000
+      -c log_checkpoints=on
+      -c log_connections=on
+      -c log_disconnections=on
+      -c log_lock_waits=on
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ncs_prod} -d ${POSTGRES_DB:-ncs_prod}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+  # =============================================================================
+  # Production Redis Overrides
+  # =============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: ncs-redis-prod
+    hostname: redis-prod
+    restart: always
+    ports:
+      - "6379"  # Not exposed externally in production
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      # Production Redis data
+      - redis_data_prod:/data
+      # Production Redis configuration
+      - ./redis-prod.conf:/usr/local/etc/redis/redis.conf:ro
+      # Redis backup directory
+      - redis_backup:/backup
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+    networks:
+      - ncs-network-prod
+    command: >
+      redis-server /usr/local/etc/redis/redis.conf
+      --requirepass ${REDIS_PASSWORD}
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 768mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --tcp-keepalive 300
+      --timeout 0
+      --tcp-backlog 511
+      --maxclients 10000
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  # =============================================================================
+  # Production Monitoring Overrides
+  # =============================================================================
+  prometheus:
+    container_name: ncs-prometheus-prod
+    hostname: prometheus-prod
+    restart: always
+    ports:
+      - "9090"  # Internal only
+    volumes:
+      - ../monitoring/prometheus/prometheus-prod.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/prometheus/alert-rules-prod.yml:/etc/prometheus/alert-rules.yml:ro
+      - prometheus_data_prod:/prometheus
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+    networks:
+      - ncs-network-prod
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--storage.tsdb.retention.size=50GB'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.external-url=https://monitoring.yourdomain.com/prometheus'
+      - '--log.level=warn'
+
+  grafana:
+    container_name: ncs-grafana-prod
+    hostname: grafana-prod
+    restart: always
+    ports:
+      - "3000"  # Behind reverse proxy
+    environment:
+      # Production Grafana Configuration
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_SECURITY_SECRET_KEY: ${GRAFANA_SECRET_KEY}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_USERS_ALLOW_ORG_CREATE: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      
+      # Security settings
+      GF_SECURITY_COOKIE_SECURE: "true"
+      GF_SECURITY_COOKIE_SAMESITE: strict
+      GF_SECURITY_STRICT_TRANSPORT_SECURITY: "true"
+      GF_SECURITY_X_CONTENT_TYPE_OPTIONS: "true"
+      GF_SECURITY_X_XSS_PROTECTION: "true"
+      
+      # Performance settings
+      GF_DATABASE_MAX_IDLE_CONN: 25
+      GF_DATABASE_MAX_OPEN_CONN: 100
+      GF_DATABASE_CONN_MAX_LIFETIME: 14400
+      
+      # Logging
+      GF_LOG_LEVEL: warn
+      GF_LOG_MODE: console
+      
+      # Disable features not needed in production
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_INSTALL_PLUGINS: ""
+      
+      # External URL
+      GF_SERVER_ROOT_URL: https://monitoring.yourdomain.com/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+    volumes:
+      - grafana_data_prod:/var/lib/grafana
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ../monitoring/grafana/datasources-prod:/etc/grafana/provisioning/datasources:ro
+      - ../monitoring/grafana/provisioning-prod:/etc/grafana/provisioning:ro
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    networks:
+      - ncs-network-prod
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  # =============================================================================
+  # Production Backup Service
+  # =============================================================================
+  backup:
+    image: alpine:latest
+    container_name: ncs-backup-prod
+    hostname: backup-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres-prod
+      POSTGRES_DB: ${POSTGRES_DB:-ncs_prod}
+      POSTGRES_USER: ${POSTGRES_USER:-ncs_prod}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: redis-prod
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      BACKUP_SCHEDULE: "0 2 * * *"  # Daily at 2 AM
+      BACKUP_RETENTION_DAYS: 30
+      S3_BUCKET: ${BACKUP_S3_BUCKET}
+      AWS_ACCESS_KEY_ID: ${BACKUP_AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${BACKUP_AWS_SECRET_ACCESS_KEY}
+    volumes:
+      - postgres_backup:/backup/postgres
+      - redis_backup:/backup/redis
+      - ../scripts/backup.sh:/usr/local/bin/backup.sh:ro
+    networks:
+      - ncs-network-prod
+    command: >
+      sh -c "
+        apk add --no-cache postgresql-client redis curl aws-cli dcron &&
+        echo '${BACKUP_SCHEDULE} /usr/local/bin/backup.sh' | crontab - &&
+        crond -f -d 8
+      "
+    depends_on:
+      - postgres
+      - redis
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+# =============================================================================
+# Production Network Configuration
+# =============================================================================
+networks:
+  ncs-network-prod:
+    name: ncs-production
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+    driver_opts:
+      com.docker.network.bridge.name: ncs-prod-bridge
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+
+# =============================================================================
+# Production Volume Configuration
+# =============================================================================
+volumes:
+  # Application volumes - production
+  ncs_logs_prod:
+    name: ncs_prod_logs
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${NCS_LOGS_PATH:-/var/lib/ncs/logs}
+  
+  ncs_data_prod:
+    name: ncs_prod_data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${NCS_DATA_PATH:-/var/lib/ncs/data}
+  
+  ncs_backup:
+    name: ncs_prod_backup
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${NCS_BACKUP_PATH:-/var/lib/ncs/backup}
+  
+  # Database volumes - production
+  postgres_data_prod:
+    name: ncs_prod_postgres
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${POSTGRES_DATA_PATH:-/var/lib/ncs/postgres}
+  
+  postgres_backup:
+    name: ncs_prod_postgres_backup
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${POSTGRES_BACKUP_PATH:-/var/lib/ncs/postgres_backup}
+  
+  redis_data_prod:
+    name: ncs_prod_redis
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${REDIS_DATA_PATH:-/var/lib/ncs/redis}
+  
+  redis_backup:
+    name: ncs_prod_redis_backup
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${REDIS_BACKUP_PATH:-/var/lib/ncs/redis_backup}
+  
+  # Monitoring volumes - production
+  prometheus_data_prod:
+    name: ncs_prod_prometheus
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PROMETHEUS_DATA_PATH:-/var/lib/ncs/prometheus}
+  
+  grafana_data_prod:
+    name: ncs_prod_grafana
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${GRAFANA_DATA_PATH:-/var/lib/ncs/grafana}
+
+# =============================================================================
+# Production Deployment Examples
+# =============================================================================
+#
+# Required Environment Variables (set before deployment):
+#   export NCS_SECRET_KEY="$(openssl rand -base64 32)"
+#   export POSTGRES_PASSWORD="$(openssl rand -base64 16)"
+#   export REDIS_PASSWORD="$(openssl rand -base64 16)"
+#   export GRAFANA_ADMIN_PASSWORD="$(openssl rand -base64 16)"
+#   export GRAFANA_SECRET_KEY="$(openssl rand -base64 32)"
+#   export DATABASE_URL="postgresql://ncs_prod:${POSTGRES_PASSWORD}@postgres-prod:5432/ncs_prod"
+#   export REDIS_URL="redis://:${REDIS_PASSWORD}@redis-prod:6379/0"
+#   export NCS_API_KEYS="$(openssl rand -base64 32),$(openssl rand -base64 32)"
+#   export ALLOWED_ORIGINS="https://yourdomain.com"
+#
+# Deploy to production:
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Scale API service:
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d --scale ncs-api=5
+#
+# Check production status:
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml ps
+#
+# View production logs:
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs -f ncs-api
+#
+# Rolling update:
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d --force-recreate ncs-api
+#
+# Stop production:
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml down
+#
+# Backup commands:
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml exec backup backup.sh
+#
+# =============================================================================

@@ -1,0 +1,1042 @@
+# NeuroCluster Streamer API - Documentation Deployment Pipeline
+# ============================================================
+# 
+# Automated documentation building, validation, and deployment pipeline:
+# - API documentation generation from OpenAPI specs
+# - Developer guide and reference documentation
+# - SDK documentation for Python and JavaScript clients
+# - Performance benchmarks and examples
+# - Multi-format documentation (HTML, PDF, markdown)
+# - Version-aware documentation deployment
+# - Documentation quality validation and link checking
+# 
+# Deployment targets:
+# - GitHub Pages for public documentation
+# - Internal documentation servers
+# - Documentation CDN for global distribution
+# - Version-specific documentation archives
+#
+# Author: NCS API Development Team
+# Year: 2025
+
+name: 'Documentation Deployment'
+
+on:
+  # Trigger on documentation changes
+  push:
+    branches:
+      - main
+      - develop
+      - 'release/*'
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - '**/*.py'  # For API docs generation
+      - 'sdk/**'
+      - 'examples/**'
+    tags:
+      - 'v*'
+  
+  # Trigger on pull requests for docs validation
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - 'sdk/**'
+      - 'examples/**'
+  
+  # Scheduled documentation refresh
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly on Monday at 6 AM UTC
+  
+  # Manual documentation deployment
+  workflow_dispatch:
+    inputs:
+      deploy_target:
+        description: 'Documentation deployment target'
+        required: true
+        default: 'github-pages'
+        type: choice
+        options:
+          - github-pages
+          - staging-docs
+          - production-docs
+          - all-targets
+      include_api_docs:
+        description: 'Generate API documentation from code'
+        required: false
+        default: true
+        type: boolean
+      include_sdk_docs:
+        description: 'Include SDK documentation'
+        required: false
+        default: true
+        type: boolean
+      force_rebuild:
+        description: 'Force complete documentation rebuild'
+        required: false
+        default: false
+        type: boolean
+
+# Global environment variables
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+  DOCS_BUILD_DIR: 'docs/_build'
+  DOCS_DIST_DIR: 'docs/_dist'
+  API_DOCS_DIR: 'docs/api'
+  SDK_DOCS_DIR: 'docs/sdk'
+
+# Documentation deployment permissions
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  pull-requests: write
+
+# Cancel in-progress documentation builds for the same branch
+concurrency:
+  group: docs-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # =============================================================================
+  # Documentation Validation and Quality Checks
+  # =============================================================================
+  
+  docs-validation:
+    name: 'Documentation Validation'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for git-based features
+      
+      - name: 'Setup Python'
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: 'Setup Node.js'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'docs/package-lock.json'
+      
+      - name: 'Install Documentation Dependencies'
+        run: |
+          # Python dependencies for API docs
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install \
+            sphinx \
+            sphinx-rtd-theme \
+            sphinx-autodoc-typehints \
+            myst-parser \
+            sphinx-copybutton \
+            sphinx-tabs \
+            sphinx-design \
+            sphinxcontrib-openapi \
+            pydantic[email] \
+            mkdocs \
+            mkdocs-material \
+            mkdocs-swagger-ui-tag \
+            mkdocs-git-revision-date-localized-plugin
+          
+          # Node.js dependencies for enhanced docs features
+          cd docs && npm install
+      
+      - name: 'Validate Documentation Structure'
+        run: |
+          echo "📋 Validating documentation structure..."
+          
+          # Check required documentation files
+          required_files=(
+            "docs/README.md"
+            "docs/API_REFERENCE.md"
+            "docs/DEPLOYMENT_GUIDE.md"
+            "docs/SECURITY_GUIDE.md"
+            "docs/TROUBLESHOOTING.md"
+            "docs/CONTRIBUTING.md"
+            "README.md"
+            "CHANGELOG.md"
+          )
+          
+          missing_files=()
+          for file in "${required_files[@]}"; do
+            if [ ! -f "$file" ]; then
+              missing_files+=("$file")
+            fi
+          done
+          
+          if [ ${#missing_files[@]} -gt 0 ]; then
+            echo "❌ Missing required documentation files:"
+            printf '  - %s\n' "${missing_files[@]}"
+            exit 1
+          fi
+          
+          echo "✅ All required documentation files present"
+      
+      - name: 'Markdown Linting'
+        run: |
+          echo "🔍 Linting markdown files..."
+          
+          # Install markdownlint-cli
+          npm install -g markdownlint-cli
+          
+          # Create markdownlint configuration
+          cat > .markdownlint.json << 'EOF'
+          {
+            "default": true,
+            "MD013": false,
+            "MD033": false,
+            "MD041": false,
+            "MD007": { "indent": 4 }
+          }
+          EOF
+          
+          # Lint all markdown files
+          markdownlint \
+            "docs/**/*.md" \
+            "README.md" \
+            "CHANGELOG.md" \
+            --config .markdownlint.json \
+            || true
+          
+          echo "✅ Markdown linting completed"
+      
+      - name: 'Documentation Link Checking'
+        run: |
+          echo "🔗 Checking documentation links..."
+          
+          # Install markdown-link-check
+          npm install -g markdown-link-check
+          
+          # Create link check configuration
+          cat > .markdown-link-check.json << 'EOF'
+          {
+            "ignorePatterns": [
+              { "pattern": "^http://localhost" },
+              { "pattern": "^https://localhost" },
+              { "pattern": "^http://127.0.0.1" },
+              { "pattern": "^https://example.com" },
+              { "pattern": "^mailto:" }
+            ],
+            "aliveStatusCodes": [200, 206],
+            "timeout": "10s",
+            "retryOn429": true,
+            "retryCount": 3
+          }
+          EOF
+          
+          # Check links in all markdown files
+          find docs -name "*.md" -exec markdown-link-check {} --config .markdown-link-check.json \;
+          markdown-link-check README.md --config .markdown-link-check.json
+          
+          echo "✅ Link checking completed"
+      
+      - name: 'Documentation Spell Check'
+        run: |
+          echo "✏️ Checking documentation spelling..."
+          
+          # Install cspell
+          npm install -g cspell
+          
+          # Create custom dictionary for technical terms
+          cat > .cspell-dict.txt << 'EOF'
+          FastAPI
+          Kubernetes
+          PostgreSQL
+          Redis
+          JWT
+          OAuth
+          API
+          SDK
+          CORS
+          HTTPS
+          SSL
+          TLS
+          CI/CD
+          YAML
+          JSON
+          REST
+          GraphQL
+          Docker
+          Prometheus
+          Grafana
+          ASGI
+          WSGI
+          pytest
+          SQLAlchemy
+          Pydantic
+          uvicorn
+          gunicorn
+          nginx
+          HAProxy
+          AWS
+          GCP
+          Azure
+          EOF
+          
+          # Create cspell configuration
+          cat > .cspell.json << 'EOF'
+          {
+            "version": "0.2",
+            "language": "en",
+            "words": [],
+            "dictionaryDefinitions": [
+              {
+                "name": "custom-dict",
+                "path": "./.cspell-dict.txt",
+                "addWords": true
+              }
+            ],
+            "dictionaries": ["custom-dict"],
+            "ignorePaths": [
+              "node_modules/**",
+              ".git/**",
+              "**/*.log"
+            ]
+          }
+          EOF
+          
+          # Spell check documentation
+          cspell "docs/**/*.md" "README.md" "CHANGELOG.md" || true
+          
+          echo "✅ Spell checking completed"
+      
+      - name: 'Documentation TOC Validation'
+        run: |
+          echo "📑 Validating table of contents..."
+          
+          # Check if main README has proper TOC structure
+          if ! grep -q "## Table of Contents\|## Contents\|# Contents" README.md; then
+            echo "⚠️ README.md missing table of contents"
+          fi
+          
+          # Validate docs/README.md structure
+          if [ -f "docs/README.md" ]; then
+            if ! grep -q "## Table of Contents\|## Contents\|# Contents" docs/README.md; then
+              echo "⚠️ docs/README.md missing table of contents"
+            fi
+          fi
+          
+          echo "✅ TOC validation completed"
+
+  # =============================================================================
+  # API Documentation Generation
+  # =============================================================================
+  
+  api-docs-generation:
+    name: 'API Documentation Generation'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: docs-validation
+    if: |
+      github.event.inputs.include_api_docs != 'false' &&
+      (github.ref == 'refs/heads/main' || 
+       github.ref == 'refs/heads/develop' || 
+       startsWith(github.ref, 'refs/tags/v') ||
+       github.event_name == 'workflow_dispatch')
+    
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v4
+      
+      - name: 'Setup Python'
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: 'Install Dependencies'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install \
+            sphinx \
+            sphinx-rtd-theme \
+            sphinx-autodoc-typehints \
+            sphinxcontrib-openapi \
+            redoc-cli
+      
+      - name: 'Generate OpenAPI Specification'
+        run: |
+          echo "📖 Generating OpenAPI specification..."
+          
+          # Start the application to generate OpenAPI spec
+          python -c "
+          import json
+          from main_secure import app
+          
+          # Generate OpenAPI spec
+          openapi_spec = app.openapi()
+          
+          # Save to file
+          with open('openapi.json', 'w') as f:
+              json.dump(openapi_spec, f, indent=2)
+          
+          print('✅ OpenAPI specification generated')
+          "
+      
+      - name: 'Generate ReDoc Documentation'
+        run: |
+          echo "📚 Generating ReDoc API documentation..."
+          
+          # Create API docs directory
+          mkdir -p ${{ env.API_DOCS_DIR }}
+          
+          # Generate ReDoc HTML
+          redoc-cli build openapi.json \
+            --output ${{ env.API_DOCS_DIR }}/index.html \
+            --title "NCS API Documentation" \
+            --options.theme.colors.primary.main="#1976d2"
+          
+          echo "✅ ReDoc documentation generated"
+      
+      - name: 'Generate Swagger UI Documentation'
+        run: |
+          echo "📋 Generating Swagger UI documentation..."
+          
+          # Create Swagger UI HTML
+          cat > ${{ env.API_DOCS_DIR }}/swagger.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>NCS API - Swagger UI</title>
+            <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui.css" />
+            <style>
+              html { box-sizing: border-box; overflow: -moz-scrollbars-vertical; overflow-y: scroll; }
+              *, *:before, *:after { box-sizing: inherit; }
+              body { margin:0; background: #fafafa; }
+            </style>
+          </head>
+          <body>
+            <div id="swagger-ui"></div>
+            <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-bundle.js"></script>
+            <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-standalone-preset.js"></script>
+            <script>
+              window.onload = function() {
+                const ui = SwaggerUIBundle({
+                  url: './openapi.json',
+                  dom_id: '#swagger-ui',
+                  deepLinking: true,
+                  presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIStandalonePreset
+                  ],
+                  plugins: [
+                    SwaggerUIBundle.plugins.DownloadUrl
+                  ],
+                  layout: "StandaloneLayout"
+                });
+              };
+            </script>
+          </body>
+          </html>
+          EOF
+          
+          # Copy OpenAPI spec to API docs
+          cp openapi.json ${{ env.API_DOCS_DIR }}/
+          
+          echo "✅ Swagger UI documentation generated"
+      
+      - name: 'Generate Code Documentation'
+        run: |
+          echo "🐍 Generating Python code documentation..."
+          
+          # Create Sphinx configuration
+          mkdir -p docs/sphinx
+          cat > docs/sphinx/conf.py << 'EOF'
+          import os
+          import sys
+          sys.path.insert(0, os.path.abspath('../..'))
+          
+          project = 'NCS API'
+          author = 'NCS API Development Team'
+          release = '1.0.0'
+          
+          extensions = [
+              'sphinx.ext.autodoc',
+              'sphinx.ext.viewcode',
+              'sphinx.ext.napoleon',
+              'sphinx_rtd_theme',
+              'sphinx_autodoc_typehints'
+          ]
+          
+          html_theme = 'sphinx_rtd_theme'
+          html_static_path = ['_static']
+          
+          autodoc_default_options = {
+              'members': True,
+              'undoc-members': True,
+              'show-inheritance': True,
+          }
+          EOF
+          
+          # Create index.rst
+          cat > docs/sphinx/index.rst << 'EOF'
+          NCS API Code Documentation
+          =========================
+          
+          .. toctree::
+             :maxdepth: 2
+             :caption: Contents:
+          
+             modules
+          
+          Indices and tables
+          ==================
+          
+          * :ref:`genindex`
+          * :ref:`modindex`
+          * :ref:`search`
+          EOF
+          
+          # Generate module documentation
+          cd docs/sphinx
+          sphinx-apidoc -o . ../.. --force
+          sphinx-build -b html . ../../${{ env.API_DOCS_DIR }}/code
+          
+          echo "✅ Code documentation generated"
+      
+      - name: 'Upload API Documentation Artifacts'
+        uses: actions/upload-artifact@v3
+        with:
+          name: api-documentation
+          path: |
+            ${{ env.API_DOCS_DIR }}/
+            openapi.json
+          retention-days: 30
+
+  # =============================================================================
+  # SDK Documentation Generation
+  # =============================================================================
+  
+  sdk-docs-generation:
+    name: 'SDK Documentation Generation'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: docs-validation
+    if: |
+      github.event.inputs.include_sdk_docs != 'false' &&
+      (github.ref == 'refs/heads/main' || 
+       github.ref == 'refs/heads/develop' || 
+       startsWith(github.ref, 'refs/tags/v') ||
+       github.event_name == 'workflow_dispatch')
+    
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v4
+      
+      - name: 'Setup Python'
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: 'Setup Node.js'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'sdk/javascript/package.json'
+      
+      - name: 'Generate Python SDK Documentation'
+        run: |
+          echo "🐍 Generating Python SDK documentation..."
+          
+          # Install Python SDK dependencies
+          cd sdk/python
+          pip install -r requirements.txt
+          pip install sphinx sphinx-rtd-theme
+          
+          # Create SDK docs directory
+          mkdir -p ../../${{ env.SDK_DOCS_DIR }}/python
+          
+          # Generate Sphinx documentation for Python SDK
+          sphinx-quickstart \
+            --quiet \
+            --project="NCS Python SDK" \
+            --author="NCS SDK Team" \
+            --release="1.0.0" \
+            --language="en" \
+            --ext-autodoc \
+            --ext-viewcode \
+            docs
+          
+          # Configure Sphinx
+          cat >> docs/conf.py << 'EOF'
+          
+          import os
+          import sys
+          sys.path.insert(0, os.path.abspath('..'))
+          
+          html_theme = 'sphinx_rtd_theme'
+          EOF
+          
+          # Generate documentation
+          cd docs
+          make html
+          cp -r _build/html/* ../../../${{ env.SDK_DOCS_DIR }}/python/
+          
+          echo "✅ Python SDK documentation generated"
+      
+      - name: 'Generate JavaScript SDK Documentation'
+        run: |
+          echo "📜 Generating JavaScript SDK documentation..."
+          
+          # Install JavaScript SDK dependencies
+          cd sdk/javascript
+          npm install
+          npm install -g jsdoc
+          
+          # Create JSDoc configuration
+          cat > jsdoc.conf.json << 'EOF'
+          {
+            "source": {
+              "include": ["./"],
+              "includePattern": "\\.(js|jsx)$",
+              "exclude": ["node_modules/"]
+            },
+            "opts": {
+              "destination": "../../docs/_build/sdk/javascript/"
+            },
+            "plugins": ["plugins/markdown"],
+            "templates": {
+              "cleverLinks": false,
+              "monospaceLinks": false
+            }
+          }
+          EOF
+          
+          # Create SDK docs directory
+          mkdir -p ../../${{ env.SDK_DOCS_DIR }}/javascript
+          
+          # Generate JSDoc documentation
+          jsdoc -c jsdoc.conf.json
+          
+          echo "✅ JavaScript SDK documentation generated"
+      
+      - name: 'Generate SDK Examples Documentation'
+        run: |
+          echo "📚 Generating SDK examples documentation..."
+          
+          # Create examples directory in docs
+          mkdir -p ${{ env.SDK_DOCS_DIR }}/examples
+          
+          # Process Python examples
+          if [ -d "sdk/python/examples" ]; then
+            cp -r sdk/python/examples/* ${{ env.SDK_DOCS_DIR }}/examples/
+            
+            # Create examples index
+            cat > ${{ env.SDK_DOCS_DIR }}/examples/README.md << 'EOF'
+          # SDK Examples
+          
+          This directory contains practical examples for using the NCS API SDKs.
+          
+          ## Python Examples
+          
+          - [Basic Usage](basic_usage.py) - Simple API calls and authentication
+          - [Streaming Example](streaming_example.py) - Real-time data processing
+          - [Batch Processing](batch_processing.py) - Efficient bulk operations
+          
+          ## JavaScript Examples
+          
+          Coming soon...
+          
+          ## Getting Started
+          
+          1. Install the appropriate SDK
+          2. Set up authentication credentials
+          3. Run the examples with your API endpoint
+          
+          For detailed setup instructions, see the main documentation.
+          EOF
+          fi
+          
+          echo "✅ SDK examples documentation generated"
+      
+      - name: 'Upload SDK Documentation Artifacts'
+        uses: actions/upload-artifact@v3
+        with:
+          name: sdk-documentation
+          path: |
+            ${{ env.SDK_DOCS_DIR }}/
+          retention-days: 30
+
+  # =============================================================================
+  # Documentation Site Building
+  # =============================================================================
+  
+  build-docs-site:
+    name: 'Build Documentation Site'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [docs-validation, api-docs-generation, sdk-docs-generation]
+    if: always() && needs.docs-validation.result == 'success'
+    
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v4
+      
+      - name: 'Setup Python'
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: 'Setup Node.js'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'docs/package-lock.json'
+      
+      - name: 'Download Documentation Artifacts'
+        uses: actions/download-artifact@v3
+        with:
+          path: docs-artifacts
+      
+      - name: 'Install Dependencies'
+        run: |
+          python -m pip install --upgrade pip
+          pip install mkdocs mkdocs-material mkdocs-swagger-ui-tag
+          
+          # Install Node.js dependencies if package.json exists
+          if [ -f "docs/package.json" ]; then
+            cd docs && npm install
+          fi
+      
+      - name: 'Prepare Documentation Structure'
+        run: |
+          echo "🏗️ Preparing documentation site structure..."
+          
+          # Create build directory
+          mkdir -p ${{ env.DOCS_BUILD_DIR }}
+          
+          # Copy main documentation
+          cp -r docs/* ${{ env.DOCS_BUILD_DIR }}/
+          
+          # Merge API documentation if available
+          if [ -d "docs-artifacts/api-documentation" ]; then
+            mkdir -p ${{ env.DOCS_BUILD_DIR }}/api
+            cp -r docs-artifacts/api-documentation/* ${{ env.DOCS_BUILD_DIR }}/api/
+          fi
+          
+          # Merge SDK documentation if available
+          if [ -d "docs-artifacts/sdk-documentation" ]; then
+            mkdir -p ${{ env.DOCS_BUILD_DIR }}/sdk
+            cp -r docs-artifacts/sdk-documentation/* ${{ env.DOCS_BUILD_DIR }}/sdk/
+          fi
+          
+          # Copy root documentation files
+          cp README.md ${{ env.DOCS_BUILD_DIR }}/
+          cp CHANGELOG.md ${{ env.DOCS_BUILD_DIR }}/
+          
+          echo "✅ Documentation structure prepared"
+      
+      - name: 'Configure MkDocs'
+        run: |
+          echo "⚙️ Configuring MkDocs..."
+          
+          # Create MkDocs configuration
+          cat > mkdocs.yml << 'EOF'
+          site_name: 'NCS API Documentation'
+          site_description: 'NeuroCluster Streamer API - High-Performance Clustering Service'
+          site_author: 'NCS API Development Team'
+          site_url: 'https://your-org.github.io/ncs-api'
+          
+          repo_name: 'your-org/ncs-api'
+          repo_url: 'https://github.com/your-org/ncs-api'
+          
+          theme:
+            name: 'material'
+            features:
+              - navigation.tabs
+              - navigation.sections
+              - navigation.expand
+              - navigation.indexes
+              - navigation.top
+              - search.highlight
+              - search.suggest
+              - content.code.copy
+              - content.code.annotate
+            palette:
+              - scheme: default
+                primary: blue
+                accent: blue
+                toggle:
+                  icon: material/brightness-7
+                  name: Switch to dark mode
+              - scheme: slate
+                primary: blue
+                accent: blue
+                toggle:
+                  icon: material/brightness-4
+                  name: Switch to light mode
+          
+          nav:
+            - Home: 'README.md'
+            - Documentation:
+              - 'docs/README.md'
+              - 'API Reference': 'docs/API_REFERENCE.md'
+              - 'Deployment Guide': 'docs/DEPLOYMENT_GUIDE.md'
+              - 'Security Guide': 'docs/SECURITY_GUIDE.md'
+              - 'Troubleshooting': 'docs/TROUBLESHOOTING.md'
+            - 'API Documentation':
+              - 'Interactive API': 'api/index.html'
+              - 'Swagger UI': 'api/swagger.html'
+              - 'Code Documentation': 'api/code/index.html'
+            - 'SDK Documentation':
+              - 'Python SDK': 'sdk/python/index.html'
+              - 'JavaScript SDK': 'sdk/javascript/index.html'
+              - 'Examples': 'sdk/examples/README.md'
+            - 'Contributing': 'docs/CONTRIBUTING.md'
+            - 'Changelog': 'CHANGELOG.md'
+          
+          plugins:
+            - search
+            - git-revision-date-localized:
+                enable_creation_date: true
+          
+          markdown_extensions:
+            - admonition
+            - codehilite
+            - pymdownx.details
+            - pymdownx.superfences
+            - pymdownx.tabbed:
+                alternate_style: true
+            - toc:
+                permalink: true
+          
+          extra:
+            social:
+              - icon: fontawesome/brands/github
+                link: https://github.com/your-org/ncs-api
+            version:
+              provider: mike
+          EOF
+          
+          echo "✅ MkDocs configuration created"
+      
+      - name: 'Build Documentation Site'
+        run: |
+          echo "🔨 Building documentation site..."
+          
+          # Build the site
+          mkdocs build --clean --strict
+          
+          # Create version info
+          echo "$(date -u +"%Y-%m-%d %H:%M:%S UTC")" > site/build-info.txt
+          echo "Commit: ${{ github.sha }}" >> site/build-info.txt
+          echo "Branch: ${{ github.ref_name }}" >> site/build-info.txt
+          
+          echo "✅ Documentation site built successfully"
+      
+      - name: 'Optimize Documentation Assets'
+        run: |
+          echo "🚀 Optimizing documentation assets..."
+          
+          # Install optimization tools
+          npm install -g html-minifier-terser
+          
+          # Minify HTML files (excluding API docs which might be pre-optimized)
+          find site -name "*.html" -not -path "*/api/*" -exec html-minifier-terser \
+            --collapse-whitespace \
+            --remove-comments \
+            --remove-optional-tags \
+            --remove-redundant-attributes \
+            --remove-script-type-attributes \
+            --remove-tag-whitespace \
+            --minify-css true \
+            --minify-js true \
+            {} --output {} \;
+          
+          echo "✅ Documentation assets optimized"
+      
+      - name: 'Generate Documentation Archive'
+        run: |
+          echo "📦 Creating documentation archive..."
+          
+          # Create versioned archive
+          tar -czf docs-${{ github.ref_name }}-${{ github.sha }}.tar.gz site/
+          
+          echo "✅ Documentation archive created"
+      
+      - name: 'Upload Documentation Site'
+        uses: actions/upload-artifact@v3
+        with:
+          name: documentation-site
+          path: |
+            site/
+            docs-*.tar.gz
+          retention-days: 90
+      
+      - name: 'Setup Pages'
+        if: |
+          (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) &&
+          (github.event.inputs.deploy_target == 'github-pages' || 
+           github.event.inputs.deploy_target == 'all-targets' ||
+           github.event_name != 'workflow_dispatch')
+        uses: actions/configure-pages@v3
+      
+      - name: 'Upload to GitHub Pages'
+        if: |
+          (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) &&
+          (github.event.inputs.deploy_target == 'github-pages' || 
+           github.event.inputs.deploy_target == 'all-targets' ||
+           github.event_name != 'workflow_dispatch')
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: site/
+
+  # =============================================================================
+  # Documentation Deployment
+  # =============================================================================
+  
+  deploy-github-pages:
+    name: 'Deploy to GitHub Pages'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: build-docs-site
+    if: |
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) &&
+      (github.event.inputs.deploy_target == 'github-pages' || 
+       github.event.inputs.deploy_target == 'all-targets' ||
+       github.event_name != 'workflow_dispatch')
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+      - name: 'Deploy to GitHub Pages'
+        id: deployment
+        uses: actions/deploy-pages@v2
+      
+      - name: 'Verify Deployment'
+        run: |
+          echo "🔍 Verifying GitHub Pages deployment..."
+          
+          # Wait for deployment to be available
+          sleep 30
+          
+          # Check if the site is accessible
+          page_url="${{ steps.deployment.outputs.page_url }}"
+          if curl -f --max-time 30 "$page_url" > /dev/null 2>&1; then
+            echo "✅ GitHub Pages deployment successful: $page_url"
+          else
+            echo "❌ GitHub Pages deployment verification failed"
+            exit 1
+          fi
+
+  # =============================================================================
+  # Documentation Validation Post-Deployment
+  # =============================================================================
+  
+  post-deployment-validation:
+    name: 'Post-Deployment Validation'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [deploy-github-pages]
+    if: always() && needs.deploy-github-pages.result == 'success'
+    
+    steps:
+      - name: 'Validate Documentation Site'
+        run: |
+          echo "🔍 Validating deployed documentation site..."
+          
+          # Define expected pages
+          base_url="${{ needs.deploy-github-pages.outputs.page_url }}"
+          expected_pages=(
+            ""
+            "api/"
+            "sdk/"
+            "docs/"
+          )
+          
+          failed_checks=0
+          
+          for page in "${expected_pages[@]}"; do
+            url="$base_url$page"
+            echo "Checking: $url"
+            
+            if curl -f --max-time 30 "$url" > /dev/null 2>&1; then
+              echo "✅ $url is accessible"
+            else
+              echo "❌ $url is not accessible"
+              ((failed_checks++))
+            fi
+          done
+          
+          if [ $failed_checks -gt 0 ]; then
+            echo "❌ $failed_checks pages failed accessibility check"
+            exit 1
+          else
+            echo "✅ All documentation pages are accessible"
+          fi
+      
+      - name: 'Performance Check'
+        run: |
+          echo "⚡ Checking documentation site performance..."
+          
+          # Install lighthouse CI
+          npm install -g @lhci/cli
+          
+          # Basic performance check
+          lighthouse_url="${{ needs.deploy-github-pages.outputs.page_url }}"
+          
+          # Run basic performance audit
+          curl -f --max-time 10 "$lighthouse_url" > /dev/null && \
+            echo "✅ Basic performance check passed" || \
+            echo "⚠️ Performance check inconclusive"
+      
+      - name: 'SEO and Accessibility Check'
+        run: |
+          echo "🔍 Checking SEO and accessibility..."
+          
+          base_url="${{ needs.deploy-github-pages.outputs.page_url }}"
+          
+          # Check for basic SEO elements
+          page_content=$(curl -s "$base_url")
+          
+          if echo "$page_content" | grep -q "<title>"; then
+            echo "✅ Page title found"
+          else
+            echo "⚠️ Page title missing"
+          fi
+          
+          if echo "$page_content" | grep -q "description"; then
+            echo "✅ Meta description found"
+          else
+            echo "⚠️ Meta description missing"
+          fi
+          
+          echo "✅ SEO and accessibility check completed"
+      
+      - name: 'Documentation Summary'
+        run: |
+          echo "📊 Documentation Deployment Summary"
+          echo "===================================="
+          echo ""
+          echo "🌐 Site URL: ${{ needs.deploy-github-pages.outputs.page_url }}"
+          echo "📅 Deployed: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+          echo "🔗 Commit: ${{ github.sha }}"
+          echo "🌿 Branch: ${{ github.ref_name }}"
+          echo ""
+          echo "📚 Available Documentation:"
+          echo "  - Main Documentation: ${{ needs.deploy-github-pages.outputs.page_url }}"
+          echo "  - API Reference: ${{ needs.deploy-github-pages.outputs.page_url }}api/"
+          echo "  - SDK Documentation: ${{ needs.deploy-github-pages.outputs.page_url }}sdk/"
+          echo ""
+          echo "✅ Documentation deployment completed successfully!"

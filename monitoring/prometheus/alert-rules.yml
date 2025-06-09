@@ -1,0 +1,491 @@
+# NeuroCluster Streamer API - Prometheus Alert Rules
+# =================================================
+# Comprehensive alerting rules for production monitoring
+#
+# Alert Categories:
+# - Critical: Service-affecting issues requiring immediate response
+# - Warning: Performance degradation or approaching limits
+# - Info: Notable events for awareness
+#
+# Author: NCS API Development Team
+# Year: 2025
+
+groups:
+# =============================================================================
+# API Service Health Alerts
+# =============================================================================
+- name: ncs-api.health
+  rules:
+  - alert: NCSAPIServiceDown
+    expr: up{job="ncs-api"} == 0
+    for: 1m
+    labels:
+      severity: critical
+      service: ncs-api
+      category: availability
+    annotations:
+      summary: "NCS API service is down"
+      description: "NCS API service has been down for more than 1 minute on instance {{ $labels.instance }}"
+      runbook_url: "https://docs.ncs-api.com/runbooks/service-down"
+      dashboard_url: "https://monitoring.yourdomain.com/d/ncs-api-main"
+
+  - alert: NCSAPIHighErrorRate
+    expr: |
+      (
+        rate(ncs_api_http_requests_total{status=~"5.."}[5m]) /
+        rate(ncs_api_http_requests_total[5m])
+      ) > 0.05
+    for: 2m
+    labels:
+      severity: critical
+      service: ncs-api
+      category: errors
+    annotations:
+      summary: "High error rate detected in NCS API"
+      description: "Error rate is {{ $value | humanizePercentage }} on instance {{ $labels.instance }}"
+      runbook_url: "https://docs.ncs-api.com/runbooks/high-error-rate"
+
+  - alert: NCSAPIHighLatency
+    expr: |
+      histogram_quantile(0.95, 
+        rate(ncs_api_http_request_duration_seconds_bucket[5m])
+      ) > 0.5
+    for: 5m
+    labels:
+      severity: warning
+      service: ncs-api
+      category: performance
+    annotations:
+      summary: "High latency detected in NCS API"
+      description: "95th percentile latency is {{ $value }}s on instance {{ $labels.instance }}"
+      runbook_url: "https://docs.ncs-api.com/runbooks/high-latency"
+
+  - alert: NCSAPILowSuccessRate
+    expr: |
+      (
+        rate(ncs_api_http_requests_total{status=~"2.."}[5m]) /
+        rate(ncs_api_http_requests_total[5m])
+      ) < 0.95
+    for: 3m
+    labels:
+      severity: warning
+      service: ncs-api
+      category: availability
+    annotations:
+      summary: "Low success rate in NCS API"
+      description: "Success rate is {{ $value | humanizePercentage }} on instance {{ $labels.instance }}"
+
+# =============================================================================
+# Algorithm Performance Alerts
+# =============================================================================
+- name: ncs-algorithm.performance
+  rules:
+  - alert: NCSAlgorithmLowThroughput
+    expr: rate(ncs_algorithm_points_processed_total[5m]) < 1000
+    for: 5m
+    labels:
+      severity: warning
+      service: ncs-api
+      category: algorithm
+    annotations:
+      summary: "NCS algorithm throughput is below threshold"
+      description: "Processing rate is {{ $value }} points/sec, below 1000 points/sec threshold"
+      runbook_url: "https://docs.ncs-api.com/runbooks/low-throughput"
+
+  - alert: NCSAlgorithmLowQuality
+    expr: ncs_algorithm_clustering_quality < 0.8
+    for: 10m
+    labels:
+      severity: warning
+      service: ncs-api
+      category: algorithm
+    annotations:
+      summary: "NCS algorithm clustering quality degraded"
+      description: "Clustering quality is {{ $value }}, below 0.8 threshold"
+      runbook_url: "https://docs.ncs-api.com/runbooks/low-quality"
+
+  - alert: NCSAlgorithmTooManyClusters
+    expr: ncs_algorithm_active_clusters > 100
+    for: 5m
+    labels:
+      severity: warning
+      service: ncs-api
+      category: algorithm
+    annotations:
+      summary: "Too many active clusters in NCS algorithm"
+      description: "Active clusters: {{ $value }}, above 100 threshold. May indicate poor data quality or configuration issues."
+
+  - alert: NCSAlgorithmHighErrorRate
+    expr: rate(ncs_algorithm_errors_total[5m]) > 10
+    for: 2m
+    labels:
+      severity: critical
+      service: ncs-api
+      category: algorithm
+    annotations:
+      summary: "High error rate in NCS algorithm"
+      description: "Algorithm error rate: {{ $value }} errors/sec"
+      runbook_url: "https://docs.ncs-api.com/runbooks/algorithm-errors"
+
+# =============================================================================
+# Resource Utilization Alerts
+# =============================================================================
+- name: ncs-api.resources
+  rules:
+  - alert: NCSAPIHighCPUUsage
+    expr: |
+      (
+        rate(process_cpu_seconds_total{job="ncs-api"}[5m]) * 100
+      ) > 80
+    for: 5m
+    labels:
+      severity: warning
+      service: ncs-api
+      category: resources
+    annotations:
+      summary: "High CPU usage in NCS API"
+      description: "CPU usage is {{ $value }}% on instance {{ $labels.instance }}"
+
+  - alert: NCSAPIHighMemoryUsage
+    expr: |
+      (
+        process_resident_memory_bytes{job="ncs-api"} / 
+        (2 * 1024 * 1024 * 1024)
+      ) > 0.85
+    for: 5m
+    labels:
+      severity: warning
+      service: ncs-api
+      category: resources
+    annotations:
+      summary: "High memory usage in NCS API"
+      description: "Memory usage is {{ $value | humanizePercentage }} of 2GB limit on instance {{ $labels.instance }}"
+
+  - alert: NCSAPIMemoryLeak
+    expr: |
+      increase(process_resident_memory_bytes{job="ncs-api"}[1h]) > 
+      (100 * 1024 * 1024)
+    for: 0m
+    labels:
+      severity: warning
+      service: ncs-api
+      category: resources
+    annotations:
+      summary: "Potential memory leak detected in NCS API"
+      description: "Memory increased by {{ $value | humanizeBytes }} in the last hour on instance {{ $labels.instance }}"
+
+  - alert: NCSAPITooManyConnections
+    expr: ncs_api_active_connections > 1000
+    for: 5m
+    labels:
+      severity: warning
+      service: ncs-api
+      category: resources
+    annotations:
+      summary: "Too many active connections in NCS API"
+      description: "Active connections: {{ $value }}, above 1000 threshold"
+
+# =============================================================================
+# Database Alerts
+# =============================================================================
+- name: database.health
+  rules:
+  - alert: PostgreSQLDown
+    expr: up{job="postgres-exporter"} == 0
+    for: 1m
+    labels:
+      severity: critical
+      service: postgresql
+      category: availability
+    annotations:
+      summary: "PostgreSQL is down"
+      description: "PostgreSQL database is not responding"
+      runbook_url: "https://docs.ncs-api.com/runbooks/database-down"
+
+  - alert: PostgreSQLHighConnections
+    expr: |
+      (
+        pg_stat_database_numbackends / 
+        pg_settings_max_connections
+      ) > 0.8
+    for: 5m
+    labels:
+      severity: warning
+      service: postgresql
+      category: resources
+    annotations:
+      summary: "PostgreSQL connection usage is high"
+      description: "Connection usage is {{ $value | humanizePercentage }}"
+
+  - alert: PostgreSQLSlowQueries
+    expr: |
+      rate(pg_stat_database_tup_returned[5m]) / 
+      rate(pg_stat_database_tup_fetched[5m]) < 0.1
+    for: 10m
+    labels:
+      severity: warning
+      service: postgresql
+      category: performance
+    annotations:
+      summary: "PostgreSQL queries are running slowly"
+      description: "Query efficiency is {{ $value | humanizePercentage }}"
+
+  - alert: PostgreSQLReplicationLag
+    expr: |
+      (
+        pg_stat_replication_replay_lag > 30
+      )
+    for: 5m
+    labels:
+      severity: warning
+      service: postgresql
+      category: replication
+    annotations:
+      summary: "PostgreSQL replication lag is high"
+      description: "Replication lag is {{ $value }}s"
+
+# =============================================================================
+# Redis Alerts
+# =============================================================================
+- name: redis.health
+  rules:
+  - alert: RedisDown
+    expr: up{job="redis-exporter"} == 0
+    for: 1m
+    labels:
+      severity: critical
+      service: redis
+      category: availability
+    annotations:
+      summary: "Redis is down"
+      description: "Redis cache server is not responding"
+      runbook_url: "https://docs.ncs-api.com/runbooks/redis-down"
+
+  - alert: RedisHighMemoryUsage
+    expr: |
+      (
+        redis_memory_used_bytes / 
+        redis_memory_max_bytes
+      ) > 0.9
+    for: 5m
+    labels:
+      severity: warning
+      service: redis
+      category: resources
+    annotations:
+      summary: "Redis memory usage is high"
+      description: "Memory usage is {{ $value | humanizePercentage }}"
+
+  - alert: RedisHighConnectionUsage
+    expr: |
+      (
+        redis_connected_clients / 
+        redis_config_maxclients
+      ) > 0.8
+    for: 5m
+    labels:
+      severity: warning
+      service: redis
+      category: resources
+    annotations:
+      summary: "Redis connection usage is high"
+      description: "Connection usage is {{ $value | humanizePercentage }}"
+
+  - alert: RedisHighEvictionRate
+    expr: rate(redis_evicted_keys_total[5m]) > 100
+    for: 5m
+    labels:
+      severity: warning
+      service: redis
+      category: performance
+    annotations:
+      summary: "Redis key eviction rate is high"
+      description: "Eviction rate: {{ $value }} keys/sec"
+
+# =============================================================================
+# Security Alerts
+# =============================================================================
+- name: security.events
+  rules:
+  - alert: NCSAPIHighFailedAuthRate
+    expr: rate(ncs_api_auth_failures_total[5m]) > 10
+    for: 2m
+    labels:
+      severity: warning
+      service: ncs-api
+      category: security
+    annotations:
+      summary: "High authentication failure rate"
+      description: "Authentication failure rate: {{ $value }} failures/sec"
+      runbook_url: "https://docs.ncs-api.com/runbooks/auth-failures"
+
+  - alert: NCSAPIRateLimitHit
+    expr: rate(ncs_api_rate_limit_exceeded_total[5m]) > 100
+    for: 5m
+    labels:
+      severity: info
+      service: ncs-api
+      category: security
+    annotations:
+      summary: "Rate limiting frequently triggered"
+      description: "Rate limit exceeded {{ $value }} times/sec"
+
+  - alert: NCSAPISuspiciousUserAgent
+    expr: rate(ncs_api_suspicious_requests_total[5m]) > 5
+    for: 5m
+    labels:
+      severity: warning
+      service: ncs-api
+      category: security
+    annotations:
+      summary: "Suspicious user agent patterns detected"
+      description: "Suspicious requests: {{ $value }} requests/sec"
+
+  - alert: NCSAPIUnauthorizedAccess
+    expr: rate(ncs_api_http_requests_total{status="403"}[5m]) > 50
+    for: 3m
+    labels:
+      severity: warning
+      service: ncs-api
+      category: security
+    annotations:
+      summary: "High rate of unauthorized access attempts"
+      description: "403 responses: {{ $value }} requests/sec"
+
+# =============================================================================
+# Business Logic Alerts
+# =============================================================================
+- name: business.metrics
+  rules:
+  - alert: NCSAPILowBusinessValue
+    expr: ncs_business_value_generated_total < 1000
+    for: 30m
+    labels:
+      severity: info
+      service: ncs-api
+      category: business
+    annotations:
+      summary: "Low business value generation"
+      description: "Business value generated: {{ $value }} (below 1000 threshold)"
+
+  - alert: NCSAPIHighProcessingCost
+    expr: |
+      (
+        ncs_business_processing_cost_total / 
+        ncs_business_revenue_total
+      ) > 0.8
+    for: 15m
+    labels:
+      severity: warning
+      service: ncs-api
+      category: business
+    annotations:
+      summary: "Processing cost ratio is high"
+      description: "Cost ratio: {{ $value | humanizePercentage }} of revenue"
+
+# =============================================================================
+# Infrastructure Alerts
+# =============================================================================
+- name: infrastructure.health
+  rules:
+  - alert: HighDiskUsage
+    expr: |
+      (
+        node_filesystem_avail_bytes{mountpoint="/"} / 
+        node_filesystem_size_bytes{mountpoint="/"}
+      ) < 0.1
+    for: 5m
+    labels:
+      severity: critical
+      service: system
+      category: infrastructure
+    annotations:
+      summary: "High disk usage detected"
+      description: "Disk usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}"
+
+  - alert: HighLoadAverage
+    expr: node_load1 > 8
+    for: 5m
+    labels:
+      severity: warning
+      service: system
+      category: infrastructure
+    annotations:
+      summary: "High system load average"
+      description: "Load average: {{ $value }} on {{ $labels.instance }}"
+
+  - alert: KubernetesNodeNotReady
+    expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+    for: 5m
+    labels:
+      severity: critical
+      service: kubernetes
+      category: infrastructure
+    annotations:
+      summary: "Kubernetes node is not ready"
+      description: "Node {{ $labels.node }} is not ready"
+
+  - alert: KubernetesPodCrashLooping
+    expr: |
+      rate(kube_pod_container_status_restarts_total[5m]) * 60 * 5 > 0
+    for: 5m
+    labels:
+      severity: warning
+      service: kubernetes
+      category: infrastructure
+    annotations:
+      summary: "Pod is crash looping"
+      description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is crash looping"
+
+# =============================================================================
+# Monitoring System Alerts
+# =============================================================================
+- name: monitoring.health
+  rules:
+  - alert: PrometheusConfigurationReloadFailed
+    expr: prometheus_config_last_reload_successful != 1
+    for: 5m
+    labels:
+      severity: warning
+      service: prometheus
+      category: monitoring
+    annotations:
+      summary: "Prometheus configuration reload failed"
+      description: "Prometheus configuration reload failed on {{ $labels.instance }}"
+
+  - alert: AlertmanagerConfigurationReloadFailed
+    expr: alertmanager_config_last_reload_successful != 1
+    for: 5m
+    labels:
+      severity: warning
+      service: alertmanager
+      category: monitoring
+    annotations:
+      summary: "Alertmanager configuration reload failed"
+      description: "Alertmanager configuration reload failed on {{ $labels.instance }}"
+
+  - alert: PrometheusTargetDown
+    expr: up == 0
+    for: 5m
+    labels:
+      severity: warning
+      service: prometheus
+      category: monitoring
+    annotations:
+      summary: "Prometheus target is down"
+      description: "Target {{ $labels.job }}/{{ $labels.instance }} is down"
+
+# =============================================================================
+# Alert Routing Labels
+# =============================================================================
+# The following labels are used by Alertmanager for routing:
+# 
+# severity:
+#   - critical: Immediate response required (page/call)
+#   - warning: Action needed within business hours
+#   - info: For awareness, no immediate action needed
+#
+# service: The service component affected
+# category: The type of issue (availability, performance, security, etc.)
+#
+# =============================================================================

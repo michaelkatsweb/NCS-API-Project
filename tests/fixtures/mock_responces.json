@@ -1,0 +1,836 @@
+{
+  "description": "Mock API responses for NeuroCluster Streamer API testing",
+  "version": "1.0.0",
+  "created": "2025-06-06",
+  
+  "authentication_responses": {
+    "successful_login": {
+      "status_code": 200,
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Request-ID": "req_12345"
+      },
+      "body": {
+        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.example_token",
+        "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.example_refresh_token",
+        "token_type": "bearer",
+        "expires_in": 3600,
+        "scope": "read write",
+        "user_info": {
+          "user_id": "user_123",
+          "email": "test@example.com",
+          "role": "user",
+          "scopes": ["read", "write"]
+        }
+      }
+    },
+    
+    "failed_login": {
+      "status_code": 401,
+      "headers": {
+        "Content-Type": "application/json",
+        "WWW-Authenticate": "Bearer realm=\"NCS API\""
+      },
+      "body": {
+        "success": false,
+        "error": "authentication_failed",
+        "message": "Invalid credentials provided",
+        "details": {
+          "error_code": "AUTH_001",
+          "timestamp": "2025-06-06T10:00:00Z"
+        }
+      }
+    },
+    
+    "token_refresh_success": {
+      "status_code": 200,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.new_access_token",
+        "token_type": "bearer",
+        "expires_in": 3600
+      }
+    },
+    
+    "expired_token_error": {
+      "status_code": 401,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "success": false,
+        "error": "token_expired",
+        "message": "JWT token has expired",
+        "details": {
+          "error_code": "AUTH_002",
+          "expired_at": "2025-06-06T09:00:00Z"
+        }
+      }
+    }
+  },
+  
+  "health_check_responses": {
+    "healthy_system": {
+      "status_code": 200,
+      "headers": {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache"
+      },
+      "body": {
+        "status": "healthy",
+        "timestamp": "2025-06-06T10:00:00Z",
+        "version": "1.0.0",
+        "uptime_seconds": 86400,
+        "checks": {
+          "database": {
+            "status": "healthy",
+            "response_time_ms": 15.2,
+            "connection_pool": {
+              "active": 3,
+              "idle": 7,
+              "total": 10
+            }
+          },
+          "algorithm": {
+            "status": "healthy",
+            "memory_usage_mb": 256.5,
+            "active_sessions": 2
+          },
+          "system_resources": {
+            "status": "healthy",
+            "cpu_percent": 35.2,
+            "memory_percent": 68.1,
+            "disk_percent": 45.3
+          }
+        }
+      }
+    },
+    
+    "degraded_system": {
+      "status_code": 200,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "status": "degraded",
+        "timestamp": "2025-06-06T10:00:00Z",
+        "version": "1.0.0",
+        "checks": {
+          "database": {
+            "status": "healthy",
+            "response_time_ms": 45.8
+          },
+          "algorithm": {
+            "status": "degraded",
+            "memory_usage_mb": 512.1,
+            "warning": "High memory usage detected"
+          },
+          "system_resources": {
+            "status": "degraded",
+            "cpu_percent": 85.3,
+            "memory_percent": 78.9,
+            "warning": "High resource utilization"
+          }
+        }
+      }
+    },
+    
+    "unhealthy_system": {
+      "status_code": 503,
+      "headers": {
+        "Content-Type": "application/json",
+        "Retry-After": "30"
+      },
+      "body": {
+        "status": "unhealthy",
+        "timestamp": "2025-06-06T10:00:00Z",
+        "checks": {
+          "database": {
+            "status": "unhealthy",
+            "error": "Connection timeout after 30 seconds"
+          },
+          "algorithm": {
+            "status": "healthy",
+            "memory_usage_mb": 128.3
+          },
+          "system_resources": {
+            "status": "critical",
+            "cpu_percent": 98.7,
+            "memory_percent": 95.2,
+            "error": "System resources exhausted"
+          }
+        }
+      }
+    }
+  },
+  
+  "data_processing_responses": {
+    "process_point_success": {
+      "status_code": 200,
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Processing-Time-Ms": "12.5"
+      },
+      "body": {
+        "success": true,
+        "result": {
+          "point_id": "test_point_1",
+          "cluster_id": "cluster_abc123",
+          "is_outlier": false,
+          "confidence": 0.95,
+          "outlier_score": 0.1,
+          "processing_time_ms": 12.5,
+          "similarity_scores": {
+            "nearest_cluster": 0.95,
+            "second_nearest": 0.3
+          },
+          "metadata": {
+            "algorithm_version": "1.0.0",
+            "timestamp": "2025-06-06T10:00:00Z"
+          }
+        }
+      }
+    },
+    
+    "process_point_outlier": {
+      "status_code": 200,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "success": true,
+        "result": {
+          "point_id": "outlier_point_1",
+          "cluster_id": null,
+          "is_outlier": true,
+          "confidence": 0.2,
+          "outlier_score": 0.85,
+          "processing_time_ms": 8.3,
+          "similarity_scores": {
+            "nearest_cluster": 0.2,
+            "second_nearest": 0.15
+          },
+          "metadata": {
+            "algorithm_version": "1.0.0",
+            "timestamp": "2025-06-06T10:00:00Z",
+            "outlier_reason": "Distance exceeds threshold"
+          }
+        }
+      }
+    },
+    
+    "process_batch_success": {
+      "status_code": 200,
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Total-Processing-Time-Ms": "156.7"
+      },
+      "body": {
+        "success": true,
+        "session_id": "session_789",
+        "total_points_processed": 5,
+        "total_processing_time_ms": 156.7,
+        "clusters_created": 2,
+        "outliers_detected": 1,
+        "results": [
+          {
+            "point_id": "batch_point_1",
+            "cluster_id": "cluster_def456",
+            "is_outlier": false,
+            "confidence": 0.92,
+            "processing_time_ms": 15.2
+          },
+          {
+            "point_id": "batch_point_2", 
+            "cluster_id": "cluster_def456",
+            "is_outlier": false,
+            "confidence": 0.88,
+            "processing_time_ms": 12.1
+          },
+          {
+            "point_id": "batch_point_3",
+            "cluster_id": "cluster_ghi789",
+            "is_outlier": false,
+            "confidence": 0.94,
+            "processing_time_ms": 18.3
+          },
+          {
+            "point_id": "batch_point_4",
+            "cluster_id": "cluster_ghi789", 
+            "is_outlier": false,
+            "confidence": 0.91,
+            "processing_time_ms": 14.7
+          },
+          {
+            "point_id": "batch_point_5",
+            "cluster_id": null,
+            "is_outlier": true,
+            "confidence": 0.15,
+            "processing_time_ms": 96.4
+          }
+        ]
+      }
+    },
+    
+    "process_point_validation_error": {
+      "status_code": 422,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "success": false,
+        "error": "validation_error",
+        "message": "Request validation failed",
+        "details": [
+          {
+            "field": "features",
+            "error": "Features array cannot be empty",
+            "provided_value": []
+          },
+          {
+            "field": "point_id",
+            "error": "Point ID must be a non-empty string",
+            "provided_value": ""
+          }
+        ]
+      }
+    },
+    
+    "algorithm_error": {
+      "status_code": 500,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "success": false,
+        "error": "algorithm_error",
+        "message": "Internal algorithm processing error",
+        "details": {
+          "error_code": "ALG_001",
+          "timestamp": "2025-06-06T10:00:00Z",
+          "request_id": "req_error_123"
+        }
+      }
+    }
+  },
+  
+  "cluster_management_responses": {
+    "get_clusters_success": {
+      "status_code": 200,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "success": true,
+        "session_id": "session_789",
+        "total_clusters": 3,
+        "active_clusters": 3,
+        "clusters": [
+          {
+            "id": "cluster_abc123",
+            "label": "Cluster A",
+            "centroid": [1.5, 2.5, 3.5],
+            "size": 15,
+            "radius": 0.8,
+            "health": "healthy",
+            "created_at": "2025-06-06T09:30:00Z",
+            "last_updated": "2025-06-06T09:45:00Z",
+            "statistics": {
+              "cohesion": 0.87,
+              "separation": 2.3,
+              "silhouette_score": 0.72,
+              "stability_score": 0.91
+            }
+          },
+          {
+            "id": "cluster_def456",
+            "label": "Cluster B", 
+            "centroid": [5.2, 6.1, 7.3],
+            "size": 23,
+            "radius": 1.2,
+            "health": "healthy",
+            "created_at": "2025-06-06T09:32:00Z",
+            "last_updated": "2025-06-06T09:48:00Z",
+            "statistics": {
+              "cohesion": 0.82,
+              "separation": 1.9,
+              "silhouette_score": 0.68,
+              "stability_score": 0.85
+            }
+          },
+          {
+            "id": "cluster_ghi789",
+            "label": "Cluster C",
+            "centroid": [10.1, 11.0, 12.2],
+            "size": 8,
+            "radius": 0.6,
+            "health": "degraded",
+            "created_at": "2025-06-06T09:35:00Z",
+            "last_updated": "2025-06-06T09:50:00Z",
+            "statistics": {
+              "cohesion": 0.75,
+              "separation": 3.1,
+              "silhouette_score": 0.58,
+              "stability_score": 0.62
+            }
+          }
+        ],
+        "pagination": {
+          "skip": 0,
+          "limit": 100,
+          "total": 3,
+          "has_more": false
+        }
+      }
+    },
+    
+    "get_cluster_details": {
+      "status_code": 200,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "success": true,
+        "cluster": {
+          "id": "cluster_abc123",
+          "label": "Cluster A",
+          "centroid": [1.5, 2.5, 3.5],
+          "size": 15,
+          "radius": 0.8,
+          "health": "healthy",
+          "created_at": "2025-06-06T09:30:00Z",
+          "last_updated": "2025-06-06T09:45:00Z",
+          "statistics": {
+            "cohesion": 0.87,
+            "separation": 2.3,
+            "silhouette_score": 0.72,
+            "stability_score": 0.91,
+            "avg_confidence": 0.89,
+            "min_confidence": 0.72,
+            "max_confidence": 0.97
+          },
+          "data_points": [
+            {
+              "point_id": "point_1",
+              "features": [1.0, 2.0, 3.0],
+              "confidence": 0.95,
+              "distance_to_centroid": 0.7
+            },
+            {
+              "point_id": "point_2",
+              "features": [1.2, 2.3, 3.1],
+              "confidence": 0.91,
+              "distance_to_centroid": 0.5
+            }
+          ]
+        }
+      }
+    },
+    
+    "cluster_not_found": {
+      "status_code": 404,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "success": false,
+        "error": "cluster_not_found",
+        "message": "Cluster with specified ID not found",
+        "details": {
+          "cluster_id": "nonexistent_cluster",
+          "error_code": "CLUSTER_001"
+        }
+      }
+    }
+  },
+  
+  "session_management_responses": {
+    "get_session_success": {
+      "status_code": 200,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "success": true,
+        "session": {
+          "id": "session_789",
+          "name": "Test Clustering Session",
+          "user_id": "user_123",
+          "status": "active",
+          "created_at": "2025-06-06T09:00:00Z",
+          "updated_at": "2025-06-06T10:00:00Z",
+          "algorithm_config": {
+            "similarity_threshold": 0.85,
+            "min_cluster_size": 3,
+            "max_clusters": 1000,
+            "outlier_threshold": 0.75
+          },
+          "algorithm_version": "1.0.0"
+        },
+        "statistics": {
+          "total_points_processed": 1000,
+          "total_points_clustered": 950,
+          "total_outliers_detected": 50,
+          "unique_clusters_created": 15,
+          "avg_processing_time_ms": 12.3,
+          "throughput_points_per_sec": 81.3,
+          "overall_silhouette_score": 0.72,
+          "clustering_efficiency": 0.95,
+          "noise_ratio": 0.05
+        },
+        "clusters": [
+          {
+            "id": "cluster_abc123",
+            "size": 67,
+            "health": "healthy"
+          },
+          {
+            "id": "cluster_def456", 
+            "size": 89,
+            "health": "healthy"
+          }
+        ]
+      }
+    },
+    
+    "delete_session_success": {
+      "status_code": 200,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "success": true,
+        "message": "Session deleted successfully",
+        "deleted_session_id": "session_789",
+        "deleted_at": "2025-06-06T10:00:00Z"
+      }
+    },
+    
+    "session_not_found": {
+      "status_code": 404,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "success": false,
+        "error": "session_not_found",
+        "message": "Session with specified ID not found",
+        "details": {
+          "session_id": "nonexistent_session",
+          "error_code": "SESSION_001"
+        }
+      }
+    }
+  },
+  
+  "statistics_responses": {
+    "get_statistics_success": {
+      "status_code": 200,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "success": true,
+        "statistics": {
+          "session_statistics": {
+            "total_points_processed": 1000,
+            "total_points_clustered": 950,
+            "total_outliers_detected": 50,
+            "clustering_efficiency": 0.95,
+            "noise_ratio": 0.05
+          },
+          "cluster_statistics": {
+            "total_clusters": 15,
+            "active_clusters": 15,
+            "avg_cluster_size": 63.3,
+            "largest_cluster_size": 120,
+            "smallest_cluster_size": 12,
+            "avg_silhouette_score": 0.72
+          },
+          "performance_statistics": {
+            "avg_processing_time_ms": 12.3,
+            "max_processing_time_ms": 45.7,
+            "min_processing_time_ms": 3.1,
+            "throughput_points_per_sec": 81.3,
+            "memory_usage_mb": 256.5,
+            "cpu_usage_percent": 35.2
+          },
+          "quality_metrics": {
+            "overall_silhouette_score": 0.72,
+            "cluster_purity": 0.89,
+            "adjusted_rand_index": 0.84,
+            "davies_bouldin_index": 0.65
+          }
+        },
+        "timestamp": "2025-06-06T10:00:00Z"
+      }
+    },
+    
+    "get_global_statistics": {
+      "status_code": 200,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "success": true,
+        "global_statistics": {
+          "total_sessions": 1250,
+          "active_sessions": 23,
+          "total_points_processed": 2500000,
+          "total_clusters_created": 45000,
+          "avg_session_duration_minutes": 45.3,
+          "system_uptime_hours": 720.5,
+          "api_requests_today": 15000,
+          "error_rate_percent": 0.02
+        },
+        "timestamp": "2025-06-06T10:00:00Z"
+      }
+    }
+  },
+  
+  "error_responses": {
+    "unauthorized_error": {
+      "status_code": 401,
+      "headers": {
+        "Content-Type": "application/json",
+        "WWW-Authenticate": "Bearer realm=\"NCS API\""
+      },
+      "body": {
+        "success": false,
+        "error": "unauthorized",
+        "message": "Authentication required",
+        "details": {
+          "error_code": "AUTH_003",
+          "required_scopes": ["read"]
+        }
+      }
+    },
+    
+    "forbidden_error": {
+      "status_code": 403,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "success": false,
+        "error": "forbidden",
+        "message": "Insufficient permissions to access this resource",
+        "details": {
+          "error_code": "AUTH_004",
+          "required_role": "admin",
+          "user_role": "user"
+        }
+      }
+    },
+    
+    "rate_limit_error": {
+      "status_code": 429,
+      "headers": {
+        "Content-Type": "application/json",
+        "X-RateLimit-Limit": "1000",
+        "X-RateLimit-Remaining": "0",
+        "X-RateLimit-Reset": "1638360000",
+        "Retry-After": "60"
+      },
+      "body": {
+        "success": false,
+        "error": "rate_limit_exceeded",
+        "message": "Rate limit exceeded. Please retry after 60 seconds.",
+        "details": {
+          "error_code": "RATE_001",
+          "limit": 1000,
+          "window_seconds": 3600,
+          "retry_after_seconds": 60
+        }
+      }
+    },
+    
+    "validation_error": {
+      "status_code": 422,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "success": false,
+        "error": "validation_error",
+        "message": "Request validation failed",
+        "details": [
+          {
+            "field": "features",
+            "error": "ensure this value has at least 1 items",
+            "input": []
+          },
+          {
+            "field": "point_id",
+            "error": "ensure this value has at least 1 characters",
+            "input": ""
+          }
+        ]
+      }
+    },
+    
+    "internal_server_error": {
+      "status_code": 500,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "success": false,
+        "error": "internal_server_error",
+        "message": "An internal server error occurred",
+        "details": {
+          "error_code": "SRV_001",
+          "timestamp": "2025-06-06T10:00:00Z",
+          "request_id": "req_error_456"
+        }
+      }
+    },
+    
+    "service_unavailable": {
+      "status_code": 503,
+      "headers": {
+        "Content-Type": "application/json",
+        "Retry-After": "30"
+      },
+      "body": {
+        "success": false,
+        "error": "service_unavailable",
+        "message": "Service temporarily unavailable",
+        "details": {
+          "error_code": "SRV_002",
+          "reason": "Database maintenance in progress",
+          "retry_after_seconds": 30
+        }
+      }
+    }
+  },
+  
+  "export_responses": {
+    "export_csv_success": {
+      "status_code": 200,
+      "headers": {
+        "Content-Type": "text/csv",
+        "Content-Disposition": "attachment; filename=\"session_789_data.csv\""
+      },
+      "body": "point_id,features,cluster_id,is_outlier,confidence,processing_time_ms\npoint_1,\"[1.0,2.0,3.0]\",cluster_abc123,false,0.95,12.5\npoint_2,\"[1.2,2.3,3.1]\",cluster_abc123,false,0.91,10.2\noutlier_1,\"[100.0,200.0,300.0]\",,true,0.15,25.7"
+    },
+    
+    "export_json_success": {
+      "status_code": 200,
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Disposition": "attachment; filename=\"session_789_data.json\""
+      },
+      "body": {
+        "session_info": {
+          "session_id": "session_789",
+          "session_name": "Test Session",
+          "export_timestamp": "2025-06-06T10:00:00Z",
+          "total_points": 1000,
+          "total_clusters": 15
+        },
+        "data_points": [
+          {
+            "point_id": "point_1",
+            "features": [1.0, 2.0, 3.0],
+            "cluster_id": "cluster_abc123",
+            "is_outlier": false,
+            "confidence": 0.95
+          }
+        ],
+        "clusters": [
+          {
+            "cluster_id": "cluster_abc123",
+            "centroid": [1.5, 2.5, 3.5],
+            "size": 67,
+            "health": "healthy"
+          }
+        ]
+      }
+    }
+  },
+  
+  "metrics_responses": {
+    "prometheus_metrics": {
+      "status_code": 200,
+      "headers": {
+        "Content-Type": "text/plain; charset=utf-8"
+      },
+      "body": "# HELP ncs_api_requests_total Total number of API requests\n# TYPE ncs_api_requests_total counter\nncs_api_requests_total{method=\"GET\",endpoint=\"/health\",status=\"200\"} 1500\nncs_api_requests_total{method=\"POST\",endpoint=\"/process-point\",status=\"200\"} 25000\n\n# HELP ncs_api_request_duration_seconds Request duration in seconds\n# TYPE ncs_api_request_duration_seconds histogram\nncs_api_request_duration_seconds_bucket{method=\"POST\",endpoint=\"/process-point\",le=\"0.01\"} 15000\nncs_api_request_duration_seconds_bucket{method=\"POST\",endpoint=\"/process-point\",le=\"0.05\"} 23000\nncs_api_request_duration_seconds_bucket{method=\"POST\",endpoint=\"/process-point\",le=\"+Inf\"} 25000\nncs_api_request_duration_seconds_sum{method=\"POST\",endpoint=\"/process-point\"} 312.5\nncs_api_request_duration_seconds_count{method=\"POST\",endpoint=\"/process-point\"} 25000\n\n# HELP ncs_api_data_points_processed_total Total number of data points processed\n# TYPE ncs_api_data_points_processed_total counter\nncs_api_data_points_processed_total{session_id=\"session_789\",algorithm_version=\"1.0.0\"} 1000\n\n# HELP ncs_api_active_sessions Number of active processing sessions\n# TYPE ncs_api_active_sessions gauge\nncs_api_active_sessions 23\n\n# HELP ncs_api_memory_usage_bytes Memory usage in bytes\n# TYPE ncs_api_memory_usage_bytes gauge\nncs_api_memory_usage_bytes{component=\"algorithm\"} 268435456\nncs_api_memory_usage_bytes{component=\"system\"} 1073741824"
+    }
+  },
+  
+  "admin_responses": {
+    "get_users_success": {
+      "status_code": 200,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "success": true,
+        "total_users": 150,
+        "users": [
+          {
+            "user_id": "user_123",
+            "email": "user@example.com",
+            "role": "user",
+            "scopes": ["read", "write"],
+            "is_active": true,
+            "created_at": "2025-01-15T10:00:00Z",
+            "last_login": "2025-06-06T09:30:00Z"
+          },
+          {
+            "user_id": "admin_456",
+            "email": "admin@example.com", 
+            "role": "admin",
+            "scopes": ["read", "write", "admin"],
+            "is_active": true,
+            "created_at": "2025-01-01T10:00:00Z",
+            "last_login": "2025-06-06T08:45:00Z"
+          }
+        ],
+        "pagination": {
+          "skip": 0,
+          "limit": 50,
+          "total": 150,
+          "has_more": true
+        }
+      }
+    },
+    
+    "get_system_config": {
+      "status_code": 200,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "success": true,
+        "configuration": {
+          "algorithm": {
+            "default_similarity_threshold": 0.85,
+            "default_min_cluster_size": 3,
+            "default_max_clusters": 1000,
+            "default_outlier_threshold": 0.75
+          },
+          "performance": {
+            "max_batch_size": 10000,
+            "request_timeout_seconds": 30,
+            "max_concurrent_sessions": 100
+          },
+          "security": {
+            "jwt_expiry_hours": 24,
+            "rate_limit_per_minute": 1000,
+            "max_login_attempts": 5
+          },
+          "monitoring": {
+            "metrics_retention_days": 90,
+            "log_level": "INFO",
+            "enable_debug_mode": false
+          }
+        }
+      }
+    }
+  }
+}

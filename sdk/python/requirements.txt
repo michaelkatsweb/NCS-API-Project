@@ -1,0 +1,85 @@
+# NeuroCluster Streamer Python SDK - Core Dependencies
+# ===================================================
+# Production dependencies for the NCS Python client library
+
+# HTTP client library for API communication
+requests>=2.31.0,<3.0.0
+urllib3>=2.0.0,<3.0.0
+
+# Async HTTP client for AsyncNCSClient
+httpx[http2]>=0.25.0,<1.0.0
+
+# JSON handling and data validation
+pydantic>=2.5.0,<3.0.0
+orjson>=3.9.0,<4.0.0
+
+# Date and time handling
+python-dateutil>=2.8.0
+pytz>=2023.3
+
+# Type hints and runtime type checking
+typing-extensions>=4.8.0
+
+# Configuration management
+python-decouple>=3.8,<4.0.0
+
+# Logging and structured output
+structlog>=23.1.0,<24.0.0
+
+# Retry logic and resilience
+tenacity>=8.2.0,<9.0.0
+backoff>=2.2.0,<3.0.0
+
+# Rate limiting
+ratelimit>=2.2.0,<3.0.0
+
+# WebSocket support for streaming
+websockets>=11.0.0,<12.0.0
+
+# Authentication and security
+cryptography>=41.0.0,<42.0.0
+PyJWT>=2.8.0,<3.0.0
+
+# Data serialization
+msgpack>=1.0.0,<2.0.0
+
+# Optional dependencies for enhanced functionality
+# (these are also listed in setup.py extras_require)
+
+# Async file operations (optional)
+# aiofiles>=22.0.0,<23.0.0
+
+# Async throttling (optional) 
+# asyncio-throttle>=1.0.0,<2.0.0
+
+# Performance optimizations (optional)
+# numpy>=1.24.0,<2.0.0
+# pandas>=1.5.0,<3.0.0
+
+# Development and testing dependencies
+# (install with: pip install -e ".[dev,test]")
+
+# Testing framework
+# pytest>=7.4.0,<8.0.0
+# pytest-asyncio>=0.21.0,<1.0.0
+# pytest-cov>=4.1.0,<5.0.0
+# pytest-mock>=3.11.0,<4.0.0
+# pytest-xdist>=3.3.0,<4.0.0
+
+# HTTP testing
+# responses>=0.23.0,<1.0.0
+# httpx[test]>=0.25.0,<1.0.0
+
+# Code quality
+# black>=23.7.0,<24.0.0
+# flake8>=6.0.0,<7.0.0
+# isort>=5.12.0,<6.0.0
+# mypy>=1.5.0,<2.0.0
+
+# Security scanning
+# bandit>=1.7.0,<2.0.0
+# safety>=2.3.0,<3.0.0
+
+# Documentation
+# sphinx>=7.1.0,<8.0.0
+# sphinx-rtd-theme>=1.3.0,<2.0.0

@@ -1,0 +1,379 @@
+# NeuroCluster Streamer API - Development Docker Compose
+# =====================================================
+# Complete development environment with all services
+#
+# Services included:
+# - NCS API (main application)
+# - PostgreSQL (database)
+# - Redis (caching and sessions)
+# - Grafana (monitoring dashboards)
+# - Prometheus (metrics collection)
+# - Adminer (database management UI)
+#
+# Usage:
+#   docker-compose up -d                    # Start all services
+#   docker-compose logs -f ncs-api          # Follow API logs
+#   docker-compose exec ncs-api bash        # Access API container
+#   docker-compose down                     # Stop all services
+#
+# Author: NCS API Development Team
+# Year: 2025
+
+version: '3.8'
+
+services:
+  # =============================================================================
+  # Core Application Service
+  # =============================================================================
+  ncs-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+      args:
+        ENVIRONMENT: development
+    container_name: ncs-api-dev
+    hostname: ncs-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"    # API port
+      - "8080:8080"    # Debug port
+    environment:
+      # Core Configuration
+      ENVIRONMENT: development
+      DEBUG: "true"
+      LOG_LEVEL: DEBUG
+      HOST: 0.0.0.0
+      PORT: 8000
+      
+      # Database Configuration
+      DATABASE_URL: postgresql://ncs_dev:ncs_dev_password@postgres:5432/ncs_dev
+      DB_POOL_SIZE: 10
+      DB_ECHO: "true"
+      
+      # Redis Configuration
+      REDIS_URL: redis://redis:6379/0
+      CACHE_TTL_SECONDS: 300
+      
+      # Development Features
+      CORS_ALLOW_ALL: "true"
+      ENABLE_DEBUG_ENDPOINTS: "true"
+      DETAILED_LOGGING: "true"
+      
+      # Algorithm Configuration
+      NCS_BASE_THRESHOLD: 0.71
+      NCS_LEARNING_RATE: 0.06
+      NCS_MAX_CLUSTERS: 30
+      NCS_ENABLE_PROFILING: "true"
+      
+      # Security (development only)
+      SECRET_KEY: dev-secret-key-not-for-production-use
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 60
+      
+      # API Keys (development)
+      API_KEY_HEADER: X-API-Key
+      VALID_API_KEYS: dev-api-key-1,dev-api-key-2
+      
+      # Monitoring
+      PROMETHEUS_ENABLED: "true"
+      METRICS_PORT: 8001
+      ENABLE_DETAILED_METRICS: "true"
+      
+      # Rate Limiting (relaxed for development)
+      RATE_LIMIT_PER_MINUTE: 10000
+      BURST_LIMIT: 1000
+    volumes:
+      # Live code editing
+      - ../:/app:rw
+      # Persistent logs
+      - ncs_logs:/app/logs
+      # Persistent data
+      - ncs_data:/app/data
+      # Cache directory
+      - ncs_cache:/app/.cache
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ncs-network
+    command: >
+      bash -c "
+        echo 'Waiting for services to be ready...' &&
+        sleep 5 &&
+        echo 'Running database migrations...' &&
+        python scripts/db_migrate.py init --environment development || true &&
+        echo 'Starting development server...' &&
+        uvicorn main_secure:app --reload --host 0.0.0.0 --port 8000 --log-level debug
+      "
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # =============================================================================
+  # Database Service
+  # =============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: ncs-postgres-dev
+    hostname: postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ncs_dev
+      POSTGRES_USER: ncs_dev
+      POSTGRES_PASSWORD: ncs_dev_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      # Persistent database storage
+      - postgres_data:/var/lib/postgresql/data
+      # Custom PostgreSQL configuration
+      - ./postgres.conf:/etc/postgresql/postgresql.conf:ro
+      # Initialization scripts
+      - ../database/migrations:/docker-entrypoint-initdb.d:ro
+    networks:
+      - ncs-network
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.track=all
+      -c max_connections=200
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ncs_dev -d ncs_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # =============================================================================
+  # Redis Service
+  # =============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: ncs-redis-dev
+    hostname: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      # Persistent Redis data
+      - redis_data:/data
+      # Custom Redis configuration
+      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
+    networks:
+      - ncs-network
+    command: >
+      redis-server /usr/local/etc/redis/redis.conf
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+
+  # =============================================================================
+  # Monitoring Services
+  # =============================================================================
+  
+  # Prometheus - Metrics Collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ncs-prometheus-dev
+    hostname: prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - ncs-network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    depends_on:
+      - ncs-api
+
+  # Grafana - Monitoring Dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ncs-grafana-dev
+    hostname: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Grafana Configuration
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
+      # Development settings
+      GF_LOG_LEVEL: debug
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      # Persistent Grafana data
+      - grafana_data:/var/lib/grafana
+      # Pre-configured dashboards
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      # Datasource configuration
+      - ../monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      # Dashboard provisioning
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - ncs-network
+    depends_on:
+      - prometheus
+
+  # =============================================================================
+  # Database Management
+  # =============================================================================
+  
+  # Adminer - Database Management UI
+  adminer:
+    image: adminer:latest
+    container_name: ncs-adminer-dev
+    hostname: adminer
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DESIGN: pepa-linha
+    networks:
+      - ncs-network
+    depends_on:
+      - postgres
+
+  # Redis Commander - Redis Management UI
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: ncs-redis-commander-dev
+    hostname: redis-commander
+    restart: unless-stopped
+    ports:
+      - "8082:8081"
+    environment:
+      REDIS_HOSTS: local:redis:6379
+      HTTP_USER: admin
+      HTTP_PASSWORD: admin123
+    networks:
+      - ncs-network
+    depends_on:
+      - redis
+
+# =============================================================================
+# Network Configuration
+# =============================================================================
+networks:
+  ncs-network:
+    name: ncs-development
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# =============================================================================
+# Volume Configuration
+# =============================================================================
+volumes:
+  # Application volumes
+  ncs_logs:
+    name: ncs_dev_logs
+    driver: local
+  ncs_data:
+    name: ncs_dev_data
+    driver: local
+  ncs_cache:
+    name: ncs_dev_cache
+    driver: local
+  
+  # Database volumes
+  postgres_data:
+    name: ncs_dev_postgres
+    driver: local
+  redis_data:
+    name: ncs_dev_redis
+    driver: local
+  
+  # Monitoring volumes
+  prometheus_data:
+    name: ncs_dev_prometheus
+    driver: local
+  grafana_data:
+    name: ncs_dev_grafana
+    driver: local
+
+# =============================================================================
+# Development Usage Examples
+# =============================================================================
+#
+# Start development environment:
+#   docker-compose up -d
+#
+# Follow API logs:
+#   docker-compose logs -f ncs-api
+#
+# Access API container shell:
+#   docker-compose exec ncs-api bash
+#
+# Run tests in container:
+#   docker-compose exec ncs-api pytest tests/ -v
+#
+# Restart just the API service:
+#   docker-compose restart ncs-api
+#
+# Scale API service:
+#   docker-compose up -d --scale ncs-api=2
+#
+# Check service health:
+#   docker-compose ps
+#
+# Access services:
+#   - API: http://localhost:8000
+#   - API Docs: http://localhost:8000/docs
+#   - Grafana: http://localhost:3000 (admin/admin123)
+#   - Prometheus: http://localhost:9090
+#   - Adminer: http://localhost:8081
+#   - Redis Commander: http://localhost:8082 (admin/admin123)
+#
+# Database access:
+#   docker-compose exec postgres psql -U ncs_dev -d ncs_dev
+#
+# Redis access:
+#   docker-compose exec redis redis-cli
+#
+# Stop all services:
+#   docker-compose down
+#
+# Stop and remove volumes:
+#   docker-compose down -v
+#
+# =============================================================================

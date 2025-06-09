@@ -1,0 +1,106 @@
+# NeuroCluster Streamer API - Pod Disruption Budget
+# =================================================
+# High availability configuration for NCS API
+
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ncs-api-pdb
+  namespace: ncs-api
+  labels:
+    app.kubernetes.io/name: ncs-api
+    app.kubernetes.io/component: pdb
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ncs-api
+      app.kubernetes.io/component: api
+
+---
+# PostgreSQL Pod Disruption Budget
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgres-pdb
+  namespace: ncs-api
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/component: pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+
+---
+# Redis Pod Disruption Budget
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: redis-pdb
+  namespace: ncs-api
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/component: pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+
+---
+# RBAC Configuration
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ncs-api-sa
+  namespace: ncs-api
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: ncs-api
+  name: ncs-api-role
+rules:
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ncs-api-rolebinding
+  namespace: ncs-api
+subjects:
+- kind: ServiceAccount
+  name: ncs-api-sa
+  namespace: ncs-api
+roleRef:
+  kind: Role
+  name: ncs-api-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Priority Classes
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: ncs-api-priority
+value: 1000
+globalDefault: false
+description: "Priority class for NCS API pods"
+
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: ncs-database-priority
+value: 1500
+globalDefault: false
+description: "High priority for database pods"

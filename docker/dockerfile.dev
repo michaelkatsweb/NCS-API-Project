@@ -1,0 +1,307 @@
+# NeuroCluster Streamer API - Development Dockerfile
+# ==================================================
+# Development Docker image for NCS API with debugging and development tools
+#
+# This Dockerfile creates a development image with:
+# - Development dependencies and debugging tools
+# - Hot reload capabilities for rapid development
+# - Interactive debugging support
+# - Code quality tools (linting, formatting)
+# - Database and Redis CLI tools
+# - Volume mounts for live code editing
+#
+# Build: docker build -f docker/Dockerfile.dev -t ncs-api:dev .
+# Run: docker-compose -f docker/docker-compose.yml up
+#
+# Author: NCS API Development Team
+# Year: 2025
+
+FROM python:3.11-slim
+
+# Metadata labels
+LABEL org.opencontainers.image.title="NeuroCluster Streamer API - Development" \
+      org.opencontainers.image.description="Development environment for NCS API" \
+      org.opencontainers.image.vendor="NCS Development Team" \
+      org.opencontainers.image.version="dev" \
+      org.opencontainers.image.licenses="MIT"
+
+# Set environment variables for development
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH="/app" \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    ENVIRONMENT=development \
+    DEBUG=true \
+    HOST=0.0.0.0 \
+    PORT=8000 \
+    LOG_LEVEL=DEBUG
+
+# Install system dependencies including development tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Build dependencies
+    gcc \
+    g++ \
+    gfortran \
+    libopenblas-dev \
+    liblapack-dev \
+    pkg-config \
+    # Development tools
+    curl \
+    wget \
+    vim \
+    nano \
+    git \
+    ssh \
+    htop \
+    tree \
+    jq \
+    # Database tools
+    postgresql-client \
+    redis-tools \
+    # Network debugging
+    net-tools \
+    iputils-ping \
+    netcat-traditional \
+    # Process management
+    procps \
+    psmisc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip and install development tools
+RUN pip install --upgrade pip setuptools wheel
+
+# Create application directory
+WORKDIR /app
+
+# Copy requirements files
+COPY requirements.txt requirements-dev.txt* ./
+
+# Install Python dependencies including development packages
+RUN pip install -r requirements.txt
+
+# Install development dependencies if available
+RUN if [ -f "requirements-dev.txt" ]; then pip install -r requirements-dev.txt; fi
+
+# Install additional development tools
+RUN pip install \
+    # Debugging tools
+    pdb++ \
+    ipython \
+    ipdb \
+    # Code quality tools
+    black \
+    flake8 \
+    isort \
+    mypy \
+    bandit \
+    # Testing tools
+    pytest \
+    pytest-asyncio \
+    pytest-cov \
+    pytest-xdist \
+    httpx \
+    # Development utilities
+    watchdog \
+    python-dotenv \
+    # Database utilities
+    psycopg2-binary \
+    alembic \
+    # API development
+    httpie
+
+# Create development user with sudo access
+RUN groupadd -r devuser && \
+    useradd -r -g devuser -s /bin/bash devuser && \
+    usermod -aG sudo devuser && \
+    echo "devuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Create necessary directories
+RUN mkdir -p /app/logs /app/data /app/tmp /app/.cache && \
+    chown -R devuser:devuser /app
+
+# Copy application code (will be overridden by volume mounts in development)
+COPY --chown=devuser:devuser . /app/
+
+# Create development configuration
+RUN cat > /app/.env.dev << EOF
+# Development Environment Configuration
+ENVIRONMENT=development
+DEBUG=true
+HOST=0.0.0.0
+PORT=8000
+LOG_LEVEL=DEBUG
+
+# Development Database (will be overridden by docker-compose)
+DATABASE_URL=postgresql://ncs_dev:ncs_dev_password@postgres:5432/ncs_dev
+
+# Development Redis (will be overridden by docker-compose)
+REDIS_URL=redis://redis:6379/0
+
+# Development Secret (not for production!)
+SECRET_KEY=dev-secret-key-not-for-production-use
+
+# Development Features
+CORS_ALLOW_ALL=true
+ENABLE_DEBUG_ENDPOINTS=true
+DETAILED_LOGGING=true
+
+# Algorithm Development Settings
+NCS_BASE_THRESHOLD=0.71
+NCS_LEARNING_RATE=0.06
+NCS_MAX_CLUSTERS=30
+NCS_ENABLE_PROFILING=true
+EOF
+
+# Set up development scripts
+RUN cat > /app/dev-setup.sh << 'EOF'
+#!/bin/bash
+echo "Setting up development environment..."
+
+# Install pre-commit hooks if available
+if [ -f ".pre-commit-config.yaml" ]; then
+    pip install pre-commit
+    pre-commit install
+fi
+
+# Run database migrations
+if [ -f "scripts/db_migrate.py" ]; then
+    python scripts/db_migrate.py init --environment development || true
+fi
+
+# Run initial tests
+pytest tests/ -v --tb=short || true
+
+echo "Development environment ready!"
+echo "Run 'uvicorn main_secure:app --reload --host 0.0.0.0 --port 8000' to start"
+EOF
+
+RUN chmod +x /app/dev-setup.sh
+
+# Create development utilities
+RUN cat > /app/dev-utils.sh << 'EOF'
+#!/bin/bash
+
+# Development utility functions
+alias ll='ls -la'
+alias la='ls -la'
+alias ..='cd ..'
+alias ...='cd ../..'
+
+# Python development aliases
+alias py='python'
+alias ipy='ipython'
+
+# FastAPI development
+alias dev-server='uvicorn main_secure:app --reload --host 0.0.0.0 --port 8000'
+alias debug-server='uvicorn main_secure:app --reload --host 0.0.0.0 --port 8000 --log-level debug'
+
+# Database utilities
+alias db-migrate='python scripts/db_migrate.py'
+alias db-shell='psql $DATABASE_URL'
+alias redis-shell='redis-cli -u $REDIS_URL'
+
+# Testing utilities
+alias test='pytest tests/ -v'
+alias test-cov='pytest tests/ --cov=app --cov-report=html'
+
+# Code quality
+alias lint='flake8 app/ tests/'
+alias format='black app/ tests/ && isort app/ tests/'
+alias type-check='mypy app/'
+alias security-check='bandit -r app/'
+
+# API utilities
+alias health-check='curl -s http://localhost:8000/health | jq'
+alias api-docs='curl -s http://localhost:8000/docs'
+
+echo "Development utilities loaded!"
+echo "Available commands: dev-server, debug-server, test, test-cov, lint, format, db-migrate, health-check"
+EOF
+
+# Set up shell configuration
+RUN echo "source /app/dev-utils.sh" >> /home/devuser/.bashrc
+
+# Install VS Code server for remote development (optional)
+RUN curl -fsSL https://code-server.dev/install.sh | sh -s -- --dry-run || true
+
+# Switch to development user
+USER devuser
+
+# Set working directory
+WORKDIR /app
+
+# Expose ports
+EXPOSE 8000 8080 3000
+
+# Add health check for development
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Default command for development with hot reload
+CMD ["bash", "-c", "source dev-utils.sh && uvicorn main_secure:app --reload --host 0.0.0.0 --port 8000 --log-level debug"]
+
+# =============================================================================
+# Development Features and Usage
+# =============================================================================
+#
+# This development image includes:
+# 
+# 1. Development Tools:
+#    - Interactive Python (ipython)
+#    - Debugging tools (pdb++, ipdb)
+#    - Code quality tools (black, flake8, mypy)
+#    - Testing framework (pytest with coverage)
+#    - Database CLI tools (psql, redis-cli)
+#    - HTTP testing (httpie)
+#
+# 2. Development Features:
+#    - Hot reload for code changes
+#    - Debug logging enabled
+#    - CORS allowing all origins
+#    - Debug endpoints enabled
+#    - Profiling support
+#
+# 3. Volume Mounts (recommended for docker-compose):
+#    - ./:/app - Live code editing
+#    - ./logs:/app/logs - Persistent logs
+#    - ./data:/app/data - Persistent data
+#
+# 4. Environment Variables:
+#    - All production variables available
+#    - DEBUG=true for development features
+#    - LOG_LEVEL=DEBUG for verbose logging
+#    - Development database/redis connections
+#
+# Usage Examples:
+#
+# Build development image:
+#   docker build -f docker/Dockerfile.dev -t ncs-api:dev .
+#
+# Run with docker-compose (recommended):
+#   docker-compose -f docker/docker-compose.yml up
+#
+# Run standalone with volume mounts:
+#   docker run -it --rm \
+#     -p 8000:8000 \
+#     -v $(pwd):/app \
+#     -v $(pwd)/logs:/app/logs \
+#     -e DATABASE_URL="postgresql://..." \
+#     ncs-api:dev
+#
+# Interactive development shell:
+#   docker run -it --rm \
+#     -v $(pwd):/app \
+#     ncs-api:dev bash
+#
+# Run tests in container:
+#   docker run --rm -v $(pwd):/app ncs-api:dev pytest tests/ -v
+#
+# Code formatting:
+#   docker run --rm -v $(pwd):/app ncs-api:dev black app/ tests/
+#
+# Debug session:
+#   docker run -it --rm -p 8000:8000 -v $(pwd):/app ncs-api:dev \
+#     python -m pdb main_secure.py
+#
+# =============================================================================

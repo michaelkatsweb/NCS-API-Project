@@ -1,0 +1,366 @@
+# NeuroCluster Streamer API - Alertmanager Configuration
+# =====================================================
+# Production alerting pipeline with multiple notification channels
+#
+# Features:
+# - Multi-channel routing (email, Slack, webhooks, PagerDuty)
+# - Severity-based escalation
+# - Business hours vs after-hours routing
+# - Alert grouping and inhibition rules
+# - Rate limiting and repeat interval management
+#
+# Author: NCS API Development Team
+# Year: 2025
+
+global:
+  # SMTP configuration for email notifications
+  smtp_smarthost: 'smtp.yourdomain.com:587'
+  smtp_from: 'ncs-alerts@yourdomain.com'
+  smtp_auth_username: 'ncs-alerts@yourdomain.com'
+  smtp_auth_password: 'your-smtp-password'
+  smtp_require_tls: true
+  
+  # Default template file
+  templates:
+    - '/etc/alertmanager/templates/*.tmpl'
+  
+  # HTTP configuration
+  http_config:
+    tls_config:
+      insecure_skip_verify: false
+
+# Routing tree - determines how alerts are distributed
+route:
+  # Root route - catches all alerts
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  receiver: 'default-receiver'
+  
+  # Child routes for different alert types
+  routes:
+  # =============================================================================
+  # Critical Production Alerts - Immediate Response
+  # =============================================================================
+  - match:
+      severity: critical
+    receiver: 'critical-alerts'
+    group_wait: 10s
+    group_interval: 2m
+    repeat_interval: 5m
+    routes:
+    # Service down alerts - highest priority
+    - match:
+        alertname: NCSAPIServiceDown
+      receiver: 'service-down-emergency'
+      group_wait: 0s
+      repeat_interval: 2m
+    
+    # Database down - critical infrastructure
+    - match:
+        alertname: PostgreSQLDown
+      receiver: 'infrastructure-emergency'
+      group_wait: 0s
+      repeat_interval: 2m
+    
+    # Algorithm errors - business impact
+    - match:
+        category: algorithm
+      receiver: 'algorithm-critical'
+      group_wait: 30s
+      repeat_interval: 10m
+
+  # =============================================================================
+  # Warning Alerts - Business Hours Response
+  # =============================================================================
+  - match:
+      severity: warning
+    receiver: 'warning-alerts'
+    group_wait: 2m
+    group_interval: 10m
+    repeat_interval: 1h
+    routes:
+    # Performance degradation
+    - match:
+        category: performance
+      receiver: 'performance-team'
+      continue: true
+    
+    # Resource utilization
+    - match:
+        category: resources
+      receiver: 'infrastructure-team'
+      continue: true
+    
+    # Security events
+    - match:
+        category: security
+      receiver: 'security-team'
+      group_wait: 1m
+      repeat_interval: 30m
+
+  # =============================================================================
+  # Info Alerts - Awareness Only
+  # =============================================================================
+  - match:
+      severity: info
+    receiver: 'info-alerts'
+    group_wait: 10m
+    group_interval: 1h
+    repeat_interval: 24h
+
+  # =============================================================================
+  # Service-Specific Routing
+  # =============================================================================
+  - match:
+      service: ncs-api
+    receiver: 'ncs-api-team'
+    routes:
+    - match:
+        category: business
+      receiver: 'business-team'
+      repeat_interval: 4h
+
+  # =============================================================================
+  # Time-Based Routing (Business Hours vs After Hours)
+  # =============================================================================
+  - match_re:
+      alertname: '.*'
+    receiver: 'after-hours-escalation'
+    time_intervals:
+      - weekends
+      - after-hours
+    group_wait: 5m
+    repeat_interval: 30m
+
+# Inhibition rules - suppress alerts when related alerts are firing
+inhibit_rules:
+# Service down inhibits other alerts for that service
+- source_match:
+    alertname: NCSAPIServiceDown
+  target_match:
+    service: ncs-api
+  equal: ['instance']
+
+# Database down inhibits database performance alerts
+- source_match:
+    alertname: PostgreSQLDown
+  target_match:
+    service: postgresql
+  equal: ['instance']
+
+# High error rate inhibits individual endpoint alerts
+- source_match:
+    alertname: NCSAPIHighErrorRate
+  target_match:
+    service: ncs-api
+    category: performance
+  equal: ['instance']
+
+# Critical alerts inhibit warning alerts for same component
+- source_match:
+    severity: critical
+  target_match:
+    severity: warning
+  equal: ['alertname', 'instance']
+
+# =============================================================================
+# Time Intervals for Business Hours Routing
+# =============================================================================
+time_intervals:
+- name: weekends
+  time_intervals:
+  - times:
+    - start_time: '00:00'
+      end_time: '24:00'
+    weekdays: ['saturday', 'sunday']
+
+- name: after-hours
+  time_intervals:
+  - times:
+    - start_time: '00:00'
+      end_time: '09:00'
+    weekdays: ['monday:friday']
+  - times:
+    - start_time: '18:00'
+      end_time: '24:00'
+    weekdays: ['monday:friday']
+
+- name: business-hours
+  time_intervals:
+  - times:
+    - start_time: '09:00'
+      end_time: '18:00'
+    weekdays: ['monday:friday']
+
+# =============================================================================
+# Notification Receivers
+# =============================================================================
+receivers:
+# Default receiver for unmatched alerts
+- name: 'default-receiver'
+  email_configs:
+  - to: 'ncs-alerts@yourdomain.com'
+    subject: 'NCS Alert: {{ .GroupLabels.alertname }}'
+    body: |
+      {{ range .Alerts }}
+      Alert: {{ .Annotations.summary }}
+      Description: {{ .Annotations.description }}
+      {{ end }}
+
+# Critical alerts - multiple channels with escalation
+- name: 'critical-alerts'
+  email_configs:
+  - to: 'ncs-oncall@yourdomain.com,ncs-leads@yourdomain.com'
+    subject: '🚨 CRITICAL: {{ .GroupLabels.alertname }}'
+    html: '{{ template "email.critical.html" . }}'
+  
+  slack_configs:
+  - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+    channel: '#ncs-critical-alerts'
+    title: '🚨 Critical Alert'
+    text: '{{ template "slack.critical" . }}'
+    color: 'danger'
+  
+  pagerduty_configs:
+  - routing_key: 'your-pagerduty-integration-key'
+    description: '{{ .GroupLabels.alertname }}: {{ .CommonAnnotations.summary }}'
+    
+  webhook_configs:
+  - url: 'https://your-incident-management-system.com/webhook'
+    http_config:
+      bearer_token: 'your-webhook-token'
+
+# Emergency service down alerts
+- name: 'service-down-emergency'
+  email_configs:
+  - to: 'ncs-oncall@yourdomain.com'
+    subject: '🚨 SERVICE DOWN: NCS API'
+    html: '{{ template "email.emergency.html" . }}'
+  
+  slack_configs:
+  - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+    channel: '#ncs-incidents'
+    title: '🚨 SERVICE DOWN'
+    text: '{{ template "slack.emergency" . }}'
+    color: 'danger'
+  
+  # SMS via webhook (Twilio, etc.)
+  webhook_configs:
+  - url: 'https://api.twilio.com/2010-04-01/Accounts/YOUR_SID/Messages.json'
+    http_config:
+      basic_auth:
+        username: 'YOUR_TWILIO_SID'
+        password: 'YOUR_TWILIO_TOKEN'
+
+# Infrastructure emergency alerts
+- name: 'infrastructure-emergency'
+  email_configs:
+  - to: 'infrastructure-oncall@yourdomain.com'
+    subject: '🚨 INFRASTRUCTURE: {{ .GroupLabels.alertname }}'
+    html: '{{ template "email.infrastructure.html" . }}'
+  
+  slack_configs:
+  - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+    channel: '#infrastructure-alerts'
+    title: '🚨 Infrastructure Alert'
+    text: '{{ template "slack.infrastructure" . }}'
+    color: 'danger'
+
+# Algorithm critical alerts
+- name: 'algorithm-critical'
+  email_configs:
+  - to: 'algorithm-team@yourdomain.com'
+    subject: '⚠️ Algorithm Issue: {{ .GroupLabels.alertname }}'
+    html: '{{ template "email.algorithm.html" . }}'
+  
+  slack_configs:
+  - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+    channel: '#algorithm-alerts'
+    title: '⚠️ Algorithm Alert'
+    text: '{{ template "slack.algorithm" . }}'
+    color: 'warning'
+
+# Warning level alerts
+- name: 'warning-alerts'
+  email_configs:
+  - to: 'ncs-team@yourdomain.com'
+    subject: '⚠️ Warning: {{ .GroupLabels.alertname }}'
+    html: '{{ template "email.warning.html" . }}'
+  
+  slack_configs:
+  - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+    channel: '#ncs-warnings'
+    title: '⚠️ Warning Alert'
+    text: '{{ template "slack.warning" . }}'
+    color: 'warning'
+
+# Performance team alerts
+- name: 'performance-team'
+  slack_configs:
+  - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+    channel: '#performance-monitoring'
+    title: '📊 Performance Alert'
+    text: '{{ template "slack.performance" . }}'
+    color: 'warning'
+
+# Infrastructure team alerts
+- name: 'infrastructure-team'
+  slack_configs:
+  - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+    channel: '#infrastructure-monitoring'
+    title: '🔧 Infrastructure Alert'
+    text: '{{ template "slack.infrastructure" . }}'
+    color: 'warning'
+
+# Security team alerts
+- name: 'security-team'
+  email_configs:
+  - to: 'security-team@yourdomain.com'
+    subject: '🔒 Security Alert: {{ .GroupLabels.alertname }}'
+    html: '{{ template "email.security.html" . }}'
+  
+  slack_configs:
+  - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+    channel: '#security-alerts'
+    title: '🔒 Security Alert'
+    text: '{{ template "slack.security" . }}'
+    color: 'danger'
+
+# Info level alerts
+- name: 'info-alerts'
+  slack_configs:
+  - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+    channel: '#ncs-info'
+    title: 'ℹ️ Info Alert'
+    text: '{{ template "slack.info" . }}'
+    color: 'good'
+
+# NCS API team alerts
+- name: 'ncs-api-team'
+  slack_configs:
+  - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+    channel: '#ncs-api-team'
+    title: '🔧 NCS API Alert'
+    text: '{{ template "slack.ncs_api" . }}'
+
+# Business team alerts
+- name: 'business-team'
+  email_configs:
+  - to: 'business-team@yourdomain.com'
+    subject: '📈 Business Metric Alert: {{ .GroupLabels.alertname }}'
+    html: '{{ template "email.business.html" . }}'
+
+# After hours escalation
+- name: 'after-hours-escalation'
+  email_configs:
+  - to: 'ncs-oncall@yourdomain.com'
+    subject: '🌙 After Hours Alert: {{ .GroupLabels.alertname }}'
+    html: '{{ template "email.after_hours.html" . }}'
+  
+  # Escalate to phone/SMS for critical issues
+  webhook_configs:
+  - url: 'https://your-escalation-service.com/webhook'
+    http_config:
+      bearer_token: 'your-escalation-token'

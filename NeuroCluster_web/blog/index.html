@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<!-- File: /NeuroCluster_website/blog/index.html -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Research Blog | NeuroCluster Streamer</title>
+    <meta name="description" content="Latest research insights, algorithm developments, and technical deep-dives from the NeuroCluster Streamer project.">
+    <meta name="keywords" content="clustering research, machine learning blog, algorithm insights, data science">
+    <meta name="author" content="Michael Katsaros">
+    
+    <!-- External Libraries -->
+    <link rel="stylesheet" href="../assets/css/main.css">
+    
+    <style>
+        /* Blog index specific styles */
+        .blog-hero {
+            background: var(--gradient-primary);
+            color: white;
+            padding: 6rem 0 3rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .blog-hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+            opacity: 0.3;
+        }
+
+        .blog-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 3rem;
+            margin: 3rem 0;
+        }
+
+        .posts-section {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .featured-post {
+            background: var(--background-white);
+            border-radius: var(--radius-2xl);
+            overflow: hidden;
+            box-shadow: var(--shadow-xl);
+            border: 1px solid var(--border-light);
+            transition: all var(--transition-base);
+        }
+
+        .featured-post:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-xl);
+        }
+
+        .featured-image {
+            height: 200px;
+            background: var(--gradient-accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 3rem;
+            position: relative;
+        }
+
+        .featured-content {
+            padding: 2rem;
+        }
+
+        .post-meta {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            font-size: var(--font-size-sm);
+            color: var(--text-muted);
+        }
+
+        .post-category {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: var(--radius-full);
+            font-weight: 500;
+            font-size: var(--font-size-xs);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .post-title {
+            font-size: var(--font-size-2xl);
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+            line-height: 1.3;
+        }
+
+        .post-excerpt {
+            color: var(--text-secondary);
+            line-height: 1.7;
+            margin-bottom: 1.5rem;
+        }
+
+        .read-more {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--accent-color);
+            text-decoration: none;
+            font-weight: 600;
+            transition: all var(--transition-base);
+        }
+
+        .read-more:hover {
+            color: var(--accent-hover);
+            transform: translateX(4px);
+        }
+
+        .post-grid {
+            display: grid;
+            gap: 2rem;
+        }
+
+        .post-card {
+            background: var(--background-white);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-xl);
+            padding: 2rem;
+            transition: all var(--transition-base);
+        }
+
+        .post-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--primary-color);
+        }
+
+        .post-card .post-title {
+            font-size: var(--font-size-xl);
+            margin-bottom: 0.75rem;
+        }
+
+        .post-card .post-excerpt {
+            margin-bottom: 1rem;
+            font-size: var(--font-size-sm);
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .sidebar-card {
+            background: var(--background-white);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-xl);
+            padding: 2rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .sidebar-title {
+            font-size: var(--font-size-lg);
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+        }
+
+        .category-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .category-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            border-radius: var(--radius-md);
+            transition: all var(--transition-base);
+            cursor: pointer;
+        }
+
+        .category-item:hover {
+            background: var(--background-light);
+        }
+
+        .category-name {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .category-count {
+            background: var(--background-light);
+            color: var(--text-muted);
+            padding: 0.25rem 0.5rem;
+            border-radius: var(--radius-sm);
+            font-size: var(--font-size-xs);
+            font-weight: 600;
+        }
+
+        .tag-cloud {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .tag {
+            background: var(--background-light);
+            color: var(--text-secondary);
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius-full);
+            font-size: var(--font-size-sm);
+            font-weight: 500;
+            text-decoration: none;
+            transition: all var(--transition-base);
+            border: 1px solid var(--border-light);
+        }
+
+        .tag:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .recent-posts {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .recent-post {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            transition: all var(--transition-base);
+        }
+
+        .recent-post:hover {
+            background: var(--background-light);
+        }
+
+        .recent-post-title {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: var(--font-size-sm);
+            line-height: 1.4;
+        }
+
+        .recent-post-date {
+            color: var(--text-muted);
+            font-size: var(--font-size-xs);
+        }
+
+        .newsletter-signup {
+            background: var(--gradient-primary);
+            color: white;
+            text-align: center;
+        }
+
+        .newsletter-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .newsletter-input {
+            padding: 0.75rem;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: var(--font-size-base);
+        }
+
+        .newsletter-btn {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 0.75rem;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-base);
+        }
+
+        .newsletter-btn:hover {
+            background: var(--accent-hover);
+            transform: translateY(-2px);
+        }
+
+        .search-box {
+            position: relative;
+            margin-bottom: 2rem;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 1rem 1rem 1rem 3rem;
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            font-size: var(--font-size-base);
+            background: var(--background-white);
+            transition: all var(--transition-base);
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            margin: 3rem 0;
+        }
+
+        .pagination-btn {
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border-light);
+            background: var(--background-white);
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: var(--radius-md);
+            font-weight: 500;
+            transition: all var(--transition-base);
+        }
+
+        .pagination-btn:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .pagination-btn.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .pagination-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .blog-content {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                order: -1;
+                flex-direction: row;
+                overflow-x: auto;
+                gap: 1rem;
+            }
+
+            .sidebar-card {
+                flex-shrink: 0;
+                min-width: 250px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .blog-hero {
+                padding: 5rem 0 2rem;
+            }
+
+            .featured-content {
+                padding: 1.5rem;
+            }
+
+            .post-card {
+                padding: 1.5rem;
+            }
+
+            .sidebar {
+                flex-direction: column;
+            }
+
+            .sidebar-card {
+                min-width: auto;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav style="position: fixed; top: 0; left: 0; right: 0; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); z-index: 1000; padding: 1rem 0; border-bottom: 1px solid var(--border-light);">
+        <div class="container flex justify-between items-center">
+            <a href="../index.html" style="font-family: 'Playfair Display', serif; font-weight: 700; font-size: 1.5rem; color: var(--primary-color);">
+                NeuroCluster Streamer
+            </a>
+            <div style="display: flex; gap: 2rem;">
+                <a href="../index.html" style="color: var(--text-secondary);">Home</a>
+                <a href="#" style="color: var(--primary-color); font-weight: 600;">Blog</a>
+                <a href="../pages/research.html" style="color: var(--text-secondary);">Research</a>
+                <a href="../pages/documentation.html" style="color: var(--text-secondary);">Docs</a>
+                <a href="../pages/demo.html" style="color: var(--text-secondary);">Demo</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="blog-hero">
+        <div class="container" style="position: relative; z-index: 1;">
+            <div style="text-align: center; max-width: 800px; margin: 0 auto;">
+                <h1 style="color: white; margin-bottom: 1.5rem; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    Research Blog
+                </h1>
+                <p class="lead" style="color: rgba(255,255,255,0.9);">
+                    Insights, developments, and deep technical analysis from the NeuroCluster 
+                    Streamer project. Explore the latest research in streaming clustering 
+                    algorithms and machine learning innovations.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Blog Content -->
+    <div class="container" style="padding-top: 3rem;">
+        <!-- Search -->
+        <div class="search-box">
+            <div class="search-icon">🔍</div>
+            <input type="text" class="search-input" placeholder="Search research articles, algorithms, and insights..." 
+                   onkeyup="filterPosts(this.value)">
+        </div>
+
+        <div class="blog-content">
+            <!-- Main Content -->
+            <main class="posts-section">
+                <!-- Featured Post -->
+                <article class="featured-post">
+                    <div class="featured-image">
+                        📊
+                    </div>
+                    <div class="featured-content">
+                        <div class="post-meta">
+                            <span class="post-category">Algorithm Deep Dive</span>
+                            <span>February 15, 2025</span>
+                            <span>15 min read</span>
+                        </div>
+                        <h2 class="post-title">
+                            Understanding the Mathematical Foundations of NeuroCluster Streamer
+                        </h2>
+                        <p class="post-excerpt">
+                            An in-depth exploration of the mathematical principles, vectorized operations, 
+                            and adaptive algorithms that enable NCS to achieve breakthrough performance 
+                            in real-time streaming data clustering. We dive deep into the core equations, 
+                            optimization techniques, and algorithmic innovations.
+                        </p>
+                        <a href="posts/2025-02-algorithm-deep-dive.html" class="read-more">
+                            Read Full Article →
+                        </a>
+                    </div>
+                </article>
+
+                <!-- Recent Posts Grid -->
+                <div class="post-grid">
+                    <article class="post-card">
+                        <div class="post-meta">
+                            <span class="post-category">Performance Analysis</span>
+                            <span>March 2, 2025</span>
+                            <span>12 min read</span>
+                        </div>
+                        <h3 class="post-title">Benchmarking NCS Against State-of-the-Art Clustering Algorithms</h3>
+                        <p class="post-excerpt">
+                            Comprehensive performance comparison showing how NeuroCluster Streamer 
+                            outperforms traditional clustering methods across multiple metrics 
+                            including throughput, latency, and clustering quality.
+                        </p>
+                        <a href="#" class="read-more">Read More →</a>
+                    </article>
+
+                    <article class="post-card">
+                        <div class="post-meta">
+                            <span class="post-category">Tutorial</span>
+                            <span>January 28, 2025</span>
+                            <span>8 min read</span>
+                        </div>
+                        <h3 class="post-title">Getting Started with Streaming Clustering</h3>
+                        <p class="post-excerpt">
+                            A beginner's guide to streaming clustering algorithms, their applications, 
+                            and why traditional batch clustering methods fall short in real-time 
+                            data processing scenarios.
+                        </p>
+                        <a href="#" class="read-more">Read More →</a>
+                    </article>
+
+                    <article class="post-card">
+                        <div class="post-meta">
+                            <span class="post-category">Research Update</span>
+                            <span>March 15, 2025</span>
+                            <span>10 min read</span>
+                        </div>
+                        <h3 class="post-title">Real-World Applications of NCS in Financial Data Analysis</h3>
+                        <p class="post-excerpt">
+                            Case study demonstrating the application of NeuroCluster Streamer 
+                            in high-frequency trading data analysis, fraud detection, and 
+                            real-time risk assessment systems.
+                        </p>
+                        <a href="#" class="read-more">Read More →</a>
+                    </article>
+
+                    <article class="post-card">
+                        <div class="post-meta">
+                            <span class="post-category">Algorithm Insights</span>
+                            <span>February 8, 2025</span>
+                            <span>14 min read</span>
+                        </div>
+                        <h3 class="post-title">Adaptive Threshold Management in Streaming Environments</h3>
+                        <p class="post-excerpt">
+                            Deep dive into how NCS dynamically adjusts clustering thresholds 
+                            based on data characteristics, enabling superior adaptation to 
+                            concept drift and changing data patterns.
+                        </p>
+                        <a href="#" class="read-more">Read More →</a>
+                    </article>
+
+                    <article class="post-card">
+                        <div class="post-meta">
+                            <span class="post-category">Implementation</span>
+                            <span>January 15, 2025</span>
+                            <span>11 min read</span>
+                        </div>
+                        <h3 class="post-title">Production Deployment Guide: Scaling NCS for Enterprise</h3>
+                        <p class="post-excerpt">
+                            Best practices for deploying NeuroCluster Streamer in production 
+                            environments, including Kubernetes configuration, monitoring setup, 
+                            and performance optimization strategies.
+                        </p>
+                        <a href="#" class="read-more">Read More →</a>
+                    </article>
+
+                    <article class="post-card">
+                        <div class="post-meta">
+                            <span class="post-category">Comparison Study</span>
+                            <span>December 22, 2024</span>
+                            <span>16 min read</span>
+                        </div>
+                        <h3 class="post-title">NCS vs. Traditional Clustering: A Comprehensive Analysis</h3>
+                        <p class="post-excerpt">
+                            Detailed comparison between NeuroCluster Streamer and traditional 
+                            clustering algorithms including K-means, DBSCAN, and other streaming 
+                            approaches across various datasets and scenarios.
+                        </p>
+                        <a href="#" class="read-more">Read More →</a>
+                    </article>
+                </div>
+
+                <!-- Pagination -->
+                <div class="pagination">
+                    <a href="#" class="pagination-btn" disabled>← Previous</a>
+                    <a href="#" class="pagination-btn active">1</a>
+                    <a href="#" class="pagination-btn">2</a>
+                    <a href="#" class="pagination-btn">3</a>
+                    <a href="#" class="pagination-btn">Next →</a>
+                </div>
+            </main>
+
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <!-- Categories -->
+                <div class="sidebar-card">
+                    <h3 class="sidebar-title">Categories</h3>
+                    <div class="category-list">
+                        <div class="category-item" onclick="filterByCategory('algorithm')">
+                            <span class="category-name">Algorithm Deep Dive</span>
+                            <span class="category-count">8</span>
+                        </div>
+                        <div class="category-item" onclick="filterByCategory('performance')">
+                            <span class="category-name">Performance Analysis</span>
+                            <span class="category-count">6</span>
+                        </div>
+                        <div class="category-item" onclick="filterByCategory('tutorial')">
+                            <span class="category-name">Tutorials</span>
+                            <span class="category-count">12</span>
+                        </div>
+                        <div class="category-item" onclick="filterByCategory('research')">
+                            <span class="category-name">Research Updates</span>
+                            <span class="category-count">15</span>
+                        </div>
+                        <div class="category-item" onclick="filterByCategory('implementation')">
+                            <span class="category-name">Implementation</span>
+                            <span class="category-count">9</span>
+                        </div>
+                        <div class="category-item" onclick="filterByCategory('comparison')">
+                            <span class="category-name">Comparison Studies</span>
+                            <span class="category-count">4</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tags -->
+                <div class="sidebar-card">
+                    <h3 class="sidebar-title">Popular Tags</h3>
+                    <div class="tag-cloud">
+                        <a href="#" class="tag">clustering</a>
+                        <a href="#" class="tag">streaming</a>
+                        <a href="#" class="tag">machine-learning</a>
+                        <a href="#" class="tag">algorithms</a>
+                        <a href="#" class="tag">real-time</a>
+                        <a href="#" class="tag">performance</a>
+                        <a href="#" class="tag">data-science</a>
+                        <a href="#" class="tag">vectorization</a>
+                        <a href="#" class="tag">adaptive</a>
+                        <a href="#" class="tag">outlier-detection</a>
+                        <a href="#" class="tag">numpy</a>
+                        <a href="#" class="tag">python</a>
+                    </div>
+                </div>
+
+                <!-- Recent Posts -->
+                <div class="sidebar-card">
+                    <h3 class="sidebar-title">Recent Posts</h3>
+                    <div class="recent-posts">
+                        <div class="recent-post">
+                            <div class="recent-post-title">Optimizing Memory Usage in Streaming Algorithms</div>
+                            <div class="recent-post-date">March 18, 2025</div>
+                        </div>
+                        <div class="recent-post">
+                            <div class="recent-post-title">Handling Concept Drift in Real-Time Clustering</div>
+                            <div class="recent-post-date">March 12, 2025</div>
+                        </div>
+                        <div class="recent-post">
+                            <div class="recent-post-title">NCS API v2.0: What's New and Improved</div>
+                            <div class="recent-post-date">March 8, 2025</div>
+                        </div>
+                        <div class="recent-post">
+                            <div class="recent-post-title">Integrating NCS with Apache Kafka</div>
+                            <div class="recent-post-date">March 5, 2025</div>
+                        </div>
+                        <div class="recent-post">
+                            <div class="recent-post-title">Quality Metrics for Streaming Clustering</div>
+                            <div class="recent-post-date">February 28, 2025</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Newsletter Signup -->
+                <div class="sidebar-card newsletter-signup">
+                    <h3 class="sidebar-title" style="color: white;">Stay Updated</h3>
+                    <p style="color: rgba(255,255,255,0.9); margin-bottom: 1rem; font-size: 0.9rem;">
+                        Get the latest research insights and algorithm updates delivered to your inbox.
+                    </p>
+                    <form class="newsletter-form" onsubmit="subscribeNewsletter(event)">
+                        <input type="email" class="newsletter-input" placeholder="Enter your email" required>
+                        <button type="submit" class="newsletter-btn">Subscribe</button>
+                    </form>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer style="background: var(--primary-color); color: white; padding: 3rem 0; margin-top: 4rem;">
+        <div class="container">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; margin-bottom: 2rem;">
+                <div>
+                    <h4 style="margin-bottom: 1rem; color: white;">Research Blog</h4>
+                    <a href="#" style="color: rgba(255,255,255,0.8); display: block; margin-bottom: 0.5rem;">Latest Articles</a>
+                    <a href="#" style="color: rgba(255,255,255,0.8); display: block; margin-bottom: 0.5rem;">Categories</a>
+                    <a href="#" style="color: rgba(255,255,255,0.8); display: block; margin-bottom: 0.5rem;">Archive</a>
+                    <a href="#" style="color: rgba(255,255,255,0.8); display: block; margin-bottom: 0.5rem;">RSS Feed</a>
+                </div>
+                <div>
+                    <h4 style="margin-bottom: 1rem; color: white;">Resources</h4>
+                    <a href="../pages/research.html" style="color: rgba(255,255,255,0.8); display: block; margin-bottom: 0.5rem;">Research Paper</a>
+                    <a href="../pages/documentation.html" style="color: rgba(255,255,255,0.8); display: block; margin-bottom: 0.5rem;">Documentation</a>
+                    <a href="../pages/demo.html" style="color: rgba(255,255,255,0.8); display: block; margin-bottom: 0.5rem;">Interactive Demo</a>
+                    <a href="#" style="color: rgba(255,255,255,0.8); display: block; margin-bottom: 0.5rem;">API Reference</a>
+                </div>
+                <div>
+                    <h4 style="margin-bottom: 1rem; color: white;">Community</h4>
+                    <a href="#" style="color: rgba(255,255,255,0.8); display: block; margin-bottom: 0.5rem;">GitHub</a>
+                    <a href="#" style="color: rgba(255,255,255,0.8); display: block; margin-bottom: 0.5rem;">Discussions</a>
+                    <a href="#" style="color: rgba(255,255,255,0.8); display: block; margin-bottom: 0.5rem;">Contributors</a>
+                    <a href="#" style="color: rgba(255,255,255,0.8); display: block; margin-bottom: 0.5rem;">Contact</a>
+                </div>
+            </div>
+            <div style="text-align: center; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.8);">
+                <p>&copy; 2025 NeuroCluster Streamer Research Blog. Sharing knowledge and advancing clustering algorithms.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Blog functionality
+        function filterPosts(searchTerm) {
+            const posts = document.querySelectorAll('.post-card');
+            const featuredPost = document.querySelector('.featured-post');
+            
+            searchTerm = searchTerm.toLowerCase();
+            
+            // Filter featured post
+            const featuredTitle = featuredPost.querySelector('.post-title').textContent.toLowerCase();
+            const featuredExcerpt = featuredPost.querySelector('.post-excerpt').textContent.toLowerCase();
+            
+            if (searchTerm === '' || featuredTitle.includes(searchTerm) || featuredExcerpt.includes(searchTerm)) {
+                featuredPost.style.display = 'block';
+            } else {
+                featuredPost.style.display = 'none';
+            }
+            
+            // Filter other posts
+            posts.forEach(post => {
+                const title = post.querySelector('.post-title').textContent.toLowerCase();
+                const excerpt = post.querySelector('.post-excerpt').textContent.toLowerCase();
+                const category = post.querySelector('.post-category').textContent.toLowerCase();
+                
+                if (searchTerm === '' || title.includes(searchTerm) || excerpt.includes(searchTerm) || category.includes(searchTerm)) {
+                    post.style.display = 'block';
+                } else {
+                    post.style.display = 'none';
+                }
+            });
+        }
+
+        function filterByCategory(category) {
+            const posts = document.querySelectorAll('.post-card');
+            const featuredPost = document.querySelector('.featured-post');
+            
+            // Reset all posts
+            featuredPost.style.display = 'block';
+            posts.forEach(post => post.style.display = 'block');
+            
+            if (category === 'all') return;
+            
+            // Filter by category
+            const categoryMap = {
+                'algorithm': 'Algorithm Deep Dive',
+                'performance': 'Performance Analysis',
+                'tutorial': 'Tutorial',
+                'research': 'Research Update',
+                'implementation': 'Implementation',
+                'comparison': 'Comparison Study'
+            };
+            
+            const targetCategory = categoryMap[category];
+            
+            posts.forEach(post => {
+                const postCategory = post.querySelector('.post-category').textContent;
+                if (postCategory !== targetCategory) {
+                    post.style.display = 'none';
+                }
+            });
+            
+            // Handle featured post
+            const featuredCategory = featuredPost.querySelector('.post-category').textContent;
+            if (featuredCategory !== targetCategory) {
+                featuredPost.style.display = 'none';
+            }
+            
+            // Update category selection state
+            document.querySelectorAll('.category-item').forEach(item => {
+                item.style.background = '';
+                item.style.color = '';
+            });
+            
+            event.target.closest('.category-item').style.background = 'var(--primary-color)';
+            event.target.closest('.category-item').style.color = 'white';
+        }
+
+        function subscribeNewsletter(event) {
+            event.preventDefault();
+            const email = event.target.querySelector('input[type="email"]').value;
+            
+            // Simulate subscription
+            alert(`Thank you for subscribing with ${email}! You'll receive the latest research updates.`);
+            event.target.reset();
+        }
+
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Add reading time estimator
+        document.addEventListener('DOMContentLoaded', function() {
+            // This would typically calculate reading time based on word count
+            // For demo purposes, we're showing static values
+        });
+
+        // Tag functionality
+        document.querySelectorAll('.tag').forEach(tag => {
+            tag.addEventListener('click', function(e) {
+                e.preventDefault();
+                const tagText = this.textContent;
+                document.querySelector('.search-input').value = tagText;
+                filterPosts(tagText);
+            });
+        });
+    </script>
+</body>
+</html>

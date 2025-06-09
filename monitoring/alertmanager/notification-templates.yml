@@ -1,0 +1,174 @@
+# NeuroCluster Streamer API - Alert Notification Templates
+# ========================================================
+# Custom templates for different alert types and channels
+
+{{ define "email.critical.html" }}
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .alert-critical { background-color: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; margin: 10px 0; }
+        .alert-header { font-weight: bold; color: #721c24; font-size: 18px; }
+        .alert-details { margin: 10px 0; }
+        .runbook-link { background-color: #007bff; color: white; padding: 8px 12px; text-decoration: none; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="alert-critical">
+        <div class="alert-header">🚨 CRITICAL ALERT</div>
+        <div class="alert-details">
+            <strong>Service:</strong> {{ .GroupLabels.service }}<br>
+            <strong>Environment:</strong> {{ .GroupLabels.environment }}<br>
+            <strong>Time:</strong> {{ .Alerts | len }} alert(s) since {{ (index .Alerts 0).StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+        </div>
+        
+        {{ range .Alerts }}
+        <div style="margin: 15px 0; padding: 10px; border-left: 4px solid #dc3545;">
+            <h3>{{ .Annotations.summary }}</h3>
+            <p>{{ .Annotations.description }}</p>
+            
+            {{ if .Annotations.runbook_url }}
+            <a href="{{ .Annotations.runbook_url }}" class="runbook-link">📖 View Runbook</a>
+            {{ end }}
+            
+            {{ if .Annotations.dashboard_url }}
+            <a href="{{ .Annotations.dashboard_url }}" class="runbook-link">📊 View Dashboard</a>
+            {{ end }}
+        </div>
+        {{ end }}
+    </div>
+</body>
+</html>
+{{ end }}
+
+{{ define "slack.critical" }}
+🚨 *CRITICAL ALERT*
+*Service:* {{ .GroupLabels.service }}
+*Environment:* {{ .GroupLabels.environment }}
+*Alerts:* {{ .Alerts | len }}
+
+{{ range .Alerts }}
+*{{ .Annotations.summary }}*
+{{ .Annotations.description }}
+
+{{ if .Annotations.runbook_url }}📖 <{{ .Annotations.runbook_url }}|Runbook>{{ end }}
+{{ if .Annotations.dashboard_url }}📊 <{{ .Annotations.dashboard_url }}|Dashboard>{{ end }}
+
+{{ end }}
+{{ end }}
+
+{{ define "slack.emergency" }}
+🚨🚨🚨 *EMERGENCY: SERVICE DOWN* 🚨🚨🚨
+
+*Service:* NCS API
+*Status:* OFFLINE
+*Impact:* Customer-facing service unavailable
+*Time:* {{ (index .Alerts 0).StartsAt.Format "15:04:05 UTC" }}
+
+{{ range .Alerts }}
+*Details:* {{ .Annotations.description }}
+{{ end }}
+
+*Immediate Actions Required:*
+1. Check service status
+2. Review logs for errors
+3. Verify infrastructure health
+4. Escalate if needed
+
+<!channel> - All hands on deck!
+{{ end }}
+
+{{ define "email.algorithm.html" }}
+<!DOCTYPE html>
+<html>
+<head><style>body{font-family:Arial,sans-serif;} .alert{background:#fff3cd;border:1px solid #ffeaa7;padding:15px;margin:10px 0;}</style></head>
+<body>
+    <div class="alert">
+        <h2>⚠️ Algorithm Performance Alert</h2>
+        <p><strong>Service:</strong> {{ .GroupLabels.service }}</p>
+        <p><strong>Component:</strong> NeuroCluster Streamer Algorithm</p>
+        
+        {{ range .Alerts }}
+        <div style="margin:15px 0;">
+            <h3>{{ .Annotations.summary }}</h3>
+            <p>{{ .Annotations.description }}</p>
+            
+            <p><strong>Recommended Actions:</strong></p>
+            <ul>
+                <li>Check algorithm performance metrics</li>
+                <li>Review recent data quality</li>
+                <li>Verify configuration parameters</li>
+                <li>Monitor for recovery</li>
+            </ul>
+        </div>
+        {{ end }}
+    </div>
+</body>
+</html>
+{{ end }}
+
+{{ define "slack.performance" }}
+📊 *Performance Alert*
+*Service:* {{ .GroupLabels.service }}
+*Category:* {{ .GroupLabels.category }}
+
+{{ range .Alerts }}
+*Issue:* {{ .Annotations.summary }}
+*Details:* {{ .Annotations.description }}
+
+*Performance Impact:* 
+- Check dashboard for trends
+- Monitor user experience
+- Review resource utilization
+
+{{ end }}
+{{ end }}
+
+{{ define "slack.security" }}
+🔒 *Security Alert*
+*Service:* {{ .GroupLabels.service }}
+*Severity:* {{ .GroupLabels.severity }}
+*Time:* {{ (index .Alerts 0).StartsAt.Format "15:04:05 UTC" }}
+
+{{ range .Alerts }}
+*Event:* {{ .Annotations.summary }}
+*Details:* {{ .Annotations.description }}
+
+*Security Actions:*
+1. Investigate source and pattern
+2. Check for related events
+3. Consider rate limiting adjustments
+4. Document incident
+
+{{ end }}
+
+⚠️ Security team notified
+{{ end }}
+
+{{ define "email.business.html" }}
+<!DOCTYPE html>
+<html>
+<head><style>body{font-family:Arial,sans-serif;} .business{background:#e7f3ff;border:1px solid #b3d9ff;padding:15px;}</style></head>
+<body>
+    <div class="business">
+        <h2>📈 Business Metrics Alert</h2>
+        
+        {{ range .Alerts }}
+        <div>
+            <h3>{{ .Annotations.summary }}</h3>
+            <p>{{ .Annotations.description }}</p>
+            
+            <p><strong>Business Impact:</strong></p>
+            <ul>
+                <li>Monitor revenue implications</li>
+                <li>Check customer satisfaction metrics</li>
+                <li>Review operational efficiency</li>
+                <li>Consider scaling adjustments</li>
+            </ul>
+        </div>
+        {{ end }}
+    </div>
+</body>
+</html>
+{{ end }}
