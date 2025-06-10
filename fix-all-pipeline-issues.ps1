@@ -19,6 +19,10 @@ if ($DryRun) {
     Write-Host ""
 }
 
+# =============================================================================
+# FINAL REPORT
+# =============================================================================
+
 $script:issuesFound = @()
 $script:issuesFixed = @()
 $script:errors = @()
@@ -788,9 +792,36 @@ if ($workflowFiles) {
     }
 }
 
-# =============================================================================
-# FINAL REPORT
-# =============================================================================
+Write-Host ""
+Write-Host "[STEP 9] Code Formatting" -ForegroundColor Yellow
+Write-Host "========================" -ForegroundColor Yellow
+
+# Auto-format code if Black and isort are available
+if (-not $DryRun) {
+    try {
+        $blackAvailable = python -c "import black; print('available')" 2>$null
+        if ($blackAvailable) {
+            Write-Host "Running Black code formatter..." -ForegroundColor White
+            python -m black . 2>$null
+            Write-Fix "Applied Black code formatting"
+        }
+    } catch {
+        Write-Issue "Black formatter not available - install with 'pip install black'" "WARNING"
+    }
+    
+    try {
+        $isortAvailable = python -c "import isort; print('available')" 2>$null
+        if ($isortAvailable) {
+            Write-Host "Running isort import formatter..." -ForegroundColor White
+            python -m isort . 2>$null
+            Write-Fix "Applied isort import formatting"
+        }
+    } catch {
+        Write-Issue "isort not available - install with 'pip install isort'" "WARNING"
+    }
+} else {
+    Write-Host "    [DRY RUN] Would format code with Black and isort" -ForegroundColor Magenta
+}
 Write-Host ""
 Write-Host "[FINAL REPORT]" -ForegroundColor Green
 Write-Host "==============" -ForegroundColor Green
@@ -826,18 +857,21 @@ Write-Host "4. Run the test workflow:" -ForegroundColor White
 Write-Host "   Go to GitHub Actions -> Pipeline Test -> Run workflow" -ForegroundColor Gray
 
 Write-Host ""
-Write-Host "[ADDITIONAL MANUAL FIXES NEEDED]:" -ForegroundColor Yellow
-Write-Host "After running this script, you may also need to:" -ForegroundColor White
-Write-Host "1. Fix code formatting:" -ForegroundColor White
-Write-Host "   black ." -ForegroundColor Gray
-Write-Host "   isort ." -ForegroundColor Gray
+Write-Host "[REMAINING OPTIONAL FIXES]:" -ForegroundColor Yellow
+Write-Host "These are optional and won't break the pipeline:" -ForegroundColor White
 
-Write-Host "2. Optional - Add Slack notifications:" -ForegroundColor White
+Write-Host "1. Slack notifications (optional):" -ForegroundColor White
 Write-Host "   Add SLACK_WEBHOOK_URL secret in GitHub repository settings" -ForegroundColor Gray
+Write-Host "   Or remove Slack notification steps from workflows" -ForegroundColor Gray
 
-Write-Host "3. Local development setup:" -ForegroundColor White
+Write-Host "2. Local development environment:" -ForegroundColor White
 Write-Host "   cp .env.example .env" -ForegroundColor Gray
 Write-Host "   # Edit .env with your actual configuration values" -ForegroundColor Gray
+
+Write-Host "3. If code formatting wasn't applied automatically:" -ForegroundColor White
+Write-Host "   pip install black isort" -ForegroundColor Gray
+Write-Host "   black ." -ForegroundColor Gray
+Write-Host "   isort ." -ForegroundColor Gray
 
 Write-Host ""
 Write-Host "[GITHUB ACTIONS DEPRECATION FIXES]:" -ForegroundColor Yellow
@@ -851,6 +885,8 @@ Write-Host ""
 Write-Host "[IMPORTANT FIXES APPLIED]:" -ForegroundColor Yellow
 Write-Host "* Fixed GitHub Actions deprecation errors (upload-artifact v3->v4)" -ForegroundColor White
 Write-Host "* Created missing .env.example file for environment configuration" -ForegroundColor White
+Write-Host "* Created missing database/migrate.py script" -ForegroundColor White
+Write-Host "* Auto-formatted code with Black and isort (if available)" -ForegroundColor White
 Write-Host "* Added non-blocking code quality checks (Black, Flake8)" -ForegroundColor White
 Write-Host "* Streamlined security scanning with working tools only" -ForegroundColor White
 Write-Host "* Created missing documentation structure for Node.js caching" -ForegroundColor White
