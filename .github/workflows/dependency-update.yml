@@ -1,4 +1,4 @@
-# NeuroCluster Streamer API - Automated Dependency Updates
+﻿# NeuroCluster Streamer API - Automated Dependency Updates
 # ========================================================
 # 
 # Comprehensive automated dependency management pipeline:
@@ -146,7 +146,7 @@ jobs:
       - name: 'Analyze Python Dependencies'
         id: analyze-python
         run: |
-          echo "🔍 Analyzing Python dependencies..."
+          echo "ðŸ” Analyzing Python dependencies..."
           
           # Create analysis script
           cat > analyze_python_deps.py << 'EOF'
@@ -253,7 +253,7 @@ jobs:
           github.event.inputs.update_type == 'all' || 
           github.event.inputs.update_type == 'javascript-only'
         run: |
-          echo "🔍 Analyzing JavaScript dependencies..."
+          echo "ðŸ” Analyzing JavaScript dependencies..."
           
           js_analysis='{
             "docs_updates": 0,
@@ -293,7 +293,7 @@ jobs:
           github.event.inputs.update_type == 'all' || 
           github.event.inputs.update_type == 'docker-only'
         run: |
-          echo "🔍 Analyzing Docker dependencies..."
+          echo "ðŸ” Analyzing Docker dependencies..."
           
           # Check for newer base images
           docker_analysis='{
@@ -317,7 +317,7 @@ jobs:
       - name: 'Determine Update Strategy'
         id: analyze
         run: |
-          echo "📋 Determining update strategy..."
+          echo "ðŸ“‹ Determining update strategy..."
           
           # Parse analysis results
           python_analysis='${{ steps.analyze-python.outputs.python_analysis }}'
@@ -362,7 +362,7 @@ jobs:
           echo "update_strategy=$strategy" >> $GITHUB_OUTPUT
       
       - name: 'Upload Analysis Results'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: dependency-analysis
           path: |
@@ -419,7 +419,7 @@ jobs:
       
       - name: 'Update Dependencies'
         run: |
-          echo "🔄 Updating Python dependencies for group: ${{ matrix.update_group }}"
+          echo "ðŸ”„ Updating Python dependencies for group: ${{ matrix.update_group }}"
           
           # Parse analysis results
           analysis='${{ needs.analyze-dependencies.outputs.python_updates }}'
@@ -457,10 +457,10 @@ jobs:
                       ], capture_output=True, text=True, check=True)
                       
                       updated_packages.append(update)
-                      print(f"✅ Updated {package_name}")
+                      print(f"âœ… Updated {package_name}")
                       
                   except subprocess.CalledProcessError as e:
-                      print(f"❌ Failed to update {package_name}: {e}")
+                      print(f"âŒ Failed to update {package_name}: {e}")
                       failed_updates.append(update)
               
               # Generate new requirements.txt
@@ -468,9 +468,9 @@ jobs:
                   subprocess.run(['pip', 'freeze'], 
                                stdout=open('requirements.txt', 'w'), 
                                check=True)
-                  print("✅ Requirements.txt updated")
+                  print("âœ… Requirements.txt updated")
               except subprocess.CalledProcessError:
-                  print("❌ Failed to update requirements.txt")
+                  print("âŒ Failed to update requirements.txt")
               
               return updated_packages, failed_updates
           
@@ -517,7 +517,7 @@ jobs:
       - name: 'Security Validation'
         if: env.CHANGES_MADE == 'true'
         run: |
-          echo "🔒 Running security validation on updated dependencies..."
+          echo "ðŸ”’ Running security validation on updated dependencies..."
           
           # Run safety check
           safety_result=0
@@ -529,15 +529,15 @@ jobs:
           
           # Check results
           if [ $safety_result -eq 0 ] && [ $audit_result -eq 0 ]; then
-            echo "✅ Security validation passed"
+            echo "âœ… Security validation passed"
             echo "SECURITY_CHECK=passed" >> $GITHUB_ENV
           else
-            echo "❌ Security validation failed"
+            echo "âŒ Security validation failed"
             echo "SECURITY_CHECK=failed" >> $GITHUB_ENV
             
             # If force update is enabled, continue anyway
             if [ "${{ github.event.inputs.force_update }}" = "true" ]; then
-              echo "⚠️ Forcing update despite security issues (emergency mode)"
+              echo "âš ï¸ Forcing update despite security issues (emergency mode)"
               echo "SECURITY_CHECK=forced" >> $GITHUB_ENV
             fi
           fi
@@ -545,7 +545,7 @@ jobs:
       - name: 'Run Tests'
         if: env.CHANGES_MADE == 'true' && env.SECURITY_CHECK != 'failed'
         run: |
-          echo "🧪 Running tests with updated dependencies..."
+          echo "ðŸ§ª Running tests with updated dependencies..."
           
           # Install test dependencies
           pip install pytest pytest-asyncio pytest-cov
@@ -555,15 +555,15 @@ jobs:
           python -m pytest tests/test_api.py -v --tb=short || test_result=$?
           
           if [ $test_result -eq 0 ]; then
-            echo "✅ Tests passed with updated dependencies"
+            echo "âœ… Tests passed with updated dependencies"
             echo "TESTS_PASSED=true" >> $GITHUB_ENV
           else
-            echo "❌ Tests failed with updated dependencies"
+            echo "âŒ Tests failed with updated dependencies"
             echo "TESTS_PASSED=false" >> $GITHUB_ENV
             
             # If force update is enabled, continue anyway
             if [ "${{ github.event.inputs.force_update }}" = "true" ]; then
-              echo "⚠️ Forcing update despite test failures (emergency mode)"
+              echo "âš ï¸ Forcing update despite test failures (emergency mode)"
               echo "TESTS_PASSED=forced" >> $GITHUB_ENV
             fi
           fi
@@ -574,7 +574,7 @@ jobs:
           (env.TESTS_PASSED == 'true' || env.TESTS_PASSED == 'forced') &&
           (env.SECURITY_CHECK == 'passed' || env.SECURITY_CHECK == 'forced')
         run: |
-          echo "💾 Committing dependency updates..."
+          echo "ðŸ’¾ Committing dependency updates..."
           
           # Read update results
           if [ -f "update_result_${{ matrix.update_group }}.json" ]; then
@@ -607,7 +607,7 @@ jobs:
       - name: 'Push Changes'
         if: env.COMMIT_CREATED == 'true'
         run: |
-          echo "🚀 Pushing changes to remote branch..."
+          echo "ðŸš€ Pushing changes to remote branch..."
           git push origin "${{ env.BRANCH_NAME }}"
           echo "BRANCH_PUSHED=true" >> $GITHUB_ENV
       
@@ -633,27 +633,27 @@ jobs:
             const failedCount = updateResults.failed?.length || 0;
             
             // Create PR body
-            const prBody = `## 🔄 Automated Dependency Updates - ${{ matrix.update_group }}
+            const prBody = `## ðŸ”„ Automated Dependency Updates - ${{ matrix.update_group }}
             
             This PR contains automated updates for **${{ matrix.update_group }}** Python dependencies.
             
-            ### 📊 Update Summary
-            - ✅ **Successfully updated**: ${updatedCount} packages
-            - ❌ **Failed to update**: ${failedCount} packages
-            - 🔒 **Security validation**: ${{ env.SECURITY_CHECK }}
-            - 🧪 **Test results**: ${{ env.TESTS_PASSED }}
+            ### ðŸ“Š Update Summary
+            - âœ… **Successfully updated**: ${updatedCount} packages
+            - âŒ **Failed to update**: ${failedCount} packages
+            - ðŸ”’ **Security validation**: ${{ env.SECURITY_CHECK }}
+            - ðŸ§ª **Test results**: ${{ env.TESTS_PASSED }}
             
-            ### 📦 Updated Packages
-            ${updateResults.updated?.map(pkg => `- \`${pkg.name}\`: ${pkg.current} → ${pkg.latest} (${pkg.type})`).join('\n') || 'None'}
+            ### ðŸ“¦ Updated Packages
+            ${updateResults.updated?.map(pkg => `- \`${pkg.name}\`: ${pkg.current} â†’ ${pkg.latest} (${pkg.type})`).join('\n') || 'None'}
             
-            ${failedCount > 0 ? `### ❌ Failed Updates
-            ${updateResults.failed?.map(pkg => `- \`${pkg.name}\`: ${pkg.current} → ${pkg.latest} (${pkg.type})`).join('\n')}` : ''}
+            ${failedCount > 0 ? `### âŒ Failed Updates
+            ${updateResults.failed?.map(pkg => `- \`${pkg.name}\`: ${pkg.current} â†’ ${pkg.latest} (${pkg.type})`).join('\n')}` : ''}
             
-            ### 🔍 Validation Results
+            ### ðŸ” Validation Results
             - **Security Check**: ${{ env.SECURITY_CHECK }}
             - **Test Suite**: ${{ env.TESTS_PASSED }}
             
-            ### 📋 Next Steps
+            ### ðŸ“‹ Next Steps
             - [ ] Review the updated dependencies
             - [ ] Run additional integration tests if needed
             - [ ] Check for any breaking changes in changelogs
@@ -661,9 +661,9 @@ jobs:
             
             ---
             
-            🤖 This PR was automatically created by the dependency update workflow.
-            📅 Generated: ${new Date().toISOString()}
-            🔗 Workflow run: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
+            ðŸ¤– This PR was automatically created by the dependency update workflow.
+            ðŸ“… Generated: ${new Date().toISOString()}
+            ðŸ”— Workflow run: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
             
             // Create the pull request
             const { data: pr } = await github.rest.pulls.create({
@@ -707,7 +707,7 @@ jobs:
       
       - name: 'Upload Update Results'
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: python-update-results-${{ matrix.update_group }}
           path: |
@@ -754,7 +754,7 @@ jobs:
             echo "project_exists=true" >> $GITHUB_OUTPUT
           else
             echo "project_exists=false" >> $GITHUB_OUTPUT
-            echo "⏭️ Skipping ${{ matrix.project }} - package.json not found"
+            echo "â­ï¸ Skipping ${{ matrix.project }} - package.json not found"
           fi
       
       - name: 'Create Update Branch'
@@ -773,7 +773,7 @@ jobs:
         if: steps.check-project.outputs.project_exists == 'true'
         working-directory: ${{ matrix.project }}
         run: |
-          echo "🔄 Updating JavaScript dependencies in ${{ matrix.project }}..."
+          echo "ðŸ”„ Updating JavaScript dependencies in ${{ matrix.project }}..."
           
           # Install current dependencies
           npm ci
@@ -828,14 +828,14 @@ jobs:
           env.CHANGES_MADE == 'true'
         working-directory: ${{ matrix.project }}
         run: |
-          echo "🧪 Running JavaScript tests..."
+          echo "ðŸ§ª Running JavaScript tests..."
           
           # Check if test script exists
           if npm run test --if-present; then
-            echo "✅ JavaScript tests passed"
+            echo "âœ… JavaScript tests passed"
             echo "JS_TESTS_PASSED=true" >> $GITHUB_ENV
           else
-            echo "⚠️ No test script found or tests failed"
+            echo "âš ï¸ No test script found or tests failed"
             echo "JS_TESTS_PASSED=unknown" >> $GITHUB_ENV
           fi
       
@@ -844,7 +844,7 @@ jobs:
           steps.check-project.outputs.project_exists == 'true' && 
           env.CHANGES_MADE == 'true'
         run: |
-          echo "💾 Committing JavaScript dependency updates..."
+          echo "ðŸ’¾ Committing JavaScript dependency updates..."
           
           # Create commit message
           commit_msg="chore(deps): update JavaScript dependencies in ${{ matrix.project }}
@@ -886,51 +886,51 @@ jobs:
         uses: actions/checkout@v4
       
       - name: 'Download All Artifacts'
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: update-artifacts
       
       - name: 'Generate Update Summary'
         run: |
-          echo "📊 Generating dependency update summary..."
+          echo "ðŸ“Š Generating dependency update summary..."
           
           cat > update-summary.md << 'EOF'
-          # 🔄 Dependency Update Summary
+          # ðŸ”„ Dependency Update Summary
           
           **Update Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
           **Repository:** ${{ github.repository }}
           **Triggered by:** ${{ github.event_name }}
           **Update Type:** ${{ github.event.inputs.update_type || 'scheduled' }}
           
-          ## 📋 Update Results
+          ## ðŸ“‹ Update Results
           
           | Component | Status | Updates | PRs Created |
           |-----------|--------|---------|-------------|
           EOF
           
           # Analyze results
-          python_status="⏭️ SKIP"
-          javascript_status="⏭️ SKIP"
+          python_status="â­ï¸ SKIP"
+          javascript_status="â­ï¸ SKIP"
           
           # Check Python updates
           if [ "${{ needs.update-python-dependencies.result }}" = "success" ]; then
-            python_status="✅ SUCCESS"
+            python_status="âœ… SUCCESS"
           elif [ "${{ needs.update-python-dependencies.result }}" = "failure" ]; then
-            python_status="❌ FAILED"
+            python_status="âŒ FAILED"
           fi
           
           # Check JavaScript updates
           if [ "${{ needs.update-javascript-dependencies.result }}" = "success" ]; then
-            javascript_status="✅ SUCCESS"
+            javascript_status="âœ… SUCCESS"
           elif [ "${{ needs.update-javascript-dependencies.result }}" = "failure" ]; then
-            javascript_status="❌ FAILED"
+            javascript_status="âŒ FAILED"
           fi
           
           echo "| Python Dependencies | $python_status | TBD | TBD |" >> update-summary.md
           echo "| JavaScript Dependencies | $javascript_status | TBD | TBD |" >> update-summary.md
           
           echo "" >> update-summary.md
-          echo "## 🔍 Detailed Analysis" >> update-summary.md
+          echo "## ðŸ” Detailed Analysis" >> update-summary.md
           echo "" >> update-summary.md
           
           # Add Python analysis if available
@@ -949,7 +949,7 @@ jobs:
             echo "" >> update-summary.md
           fi
           
-          echo "## 🚀 Next Steps" >> update-summary.md
+          echo "## ðŸš€ Next Steps" >> update-summary.md
           echo "" >> update-summary.md
           echo "1. Review and merge the created pull requests" >> update-summary.md
           echo "2. Monitor applications for any issues after deployment" >> update-summary.md
@@ -972,13 +972,13 @@ jobs:
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: `🔄 Weekly Dependency Update Summary - ${new Date().toISOString().split('T')[0]}`,
+              title: `ðŸ”„ Weekly Dependency Update Summary - ${new Date().toISOString().split('T')[0]}`,
               body: summary,
               labels: ['dependencies', 'maintenance', 'automated']
             });
       
       - name: 'Upload Summary'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: update-summary
           path: update-summary.md
@@ -986,7 +986,7 @@ jobs:
       
       - name: 'Cleanup Old Branches'
         run: |
-          echo "🧹 Cleaning up old dependency update branches..."
+          echo "ðŸ§¹ Cleaning up old dependency update branches..."
           
           # List all dependency update branches older than 30 days
           cutoff_date=$(date -d '30 days ago' +%Y%m%d)
@@ -1007,17 +1007,17 @@ jobs:
       
       - name: 'Workflow Summary'
         run: |
-          echo "🎯 Dependency Update Workflow Summary"
+          echo "ðŸŽ¯ Dependency Update Workflow Summary"
           echo "===================================="
           echo ""
-          echo "📅 Execution Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-          echo "🔄 Update Type: ${{ github.event.inputs.update_type || 'scheduled' }}"
-          echo "🐍 Python Updates: ${{ needs.update-python-dependencies.result }}"
-          echo "📜 JavaScript Updates: ${{ needs.update-javascript-dependencies.result }}"
+          echo "ðŸ“… Execution Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+          echo "ðŸ”„ Update Type: ${{ github.event.inputs.update_type || 'scheduled' }}"
+          echo "ðŸ Python Updates: ${{ needs.update-python-dependencies.result }}"
+          echo "ðŸ“œ JavaScript Updates: ${{ needs.update-javascript-dependencies.result }}"
           echo ""
-          echo "📊 Analysis Results:"
+          echo "ðŸ“Š Analysis Results:"
           echo "  - Security updates needed: ${{ needs.analyze-dependencies.outputs.security_updates }}"
           echo ""
-          echo "🔗 Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "ðŸ”— Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           echo ""
-          echo "✅ Dependency update workflow completed!"
+          echo "âœ… Dependency update workflow completed!"

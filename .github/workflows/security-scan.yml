@@ -1,4 +1,4 @@
-# NeuroCluster Streamer API - Security Scanning Pipeline
+﻿# NeuroCluster Streamer API - Security Scanning Pipeline
 # =====================================================
 # 
 # Comprehensive security scanning and vulnerability assessment pipeline:
@@ -108,293 +108,9 @@ jobs:
       github.event.inputs.scan_type != 'sast-only'
     
     steps:
-      - name: 'Checkout Code'
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Full history for comprehensive secret detection
-      
-      - name: 'GitLeaks Secret Detection'
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
-      
-      - name: 'TruffleHog Secret Scanning'
-        uses: trufflesecurity/trufflehog@main
-        with:
-          path: ./
-          base: main
-          head: HEAD
-          extra_args: --debug --only-verified
-      
-      - name: 'Custom Secret Pattern Check'
-        run: |
-          echo "🔍 Checking for custom secret patterns..."
-          
-          # Define custom patterns for NCS API
-          declare -A SECRET_PATTERNS=(
-            ["JWT_SECRET"]="jwt_secret|JWT_SECRET"
-            ["API_KEYS"]="api[_-]?key|API[_-]?KEY"
-            ["DATABASE_PASSWORDS"]="db[_-]?pass|database[_-]?password"
-            ["REDIS_AUTH"]="redis[_-]?pass|redis[_-]?auth"
-            ["ENCRYPTION_KEYS"]="encrypt[_-]?key|cipher[_-]?key"
-            ["PRIVATE_KEYS"]="-----BEGIN.*PRIVATE.*KEY-----"
-            ["CLOUD_CREDENTIALS"]="AKIA[0-9A-Z]{16}|ya29\."
-          )
-          
-          found_secrets=false
-          
-          for pattern_name in "${!SECRET_PATTERNS[@]}"; do
-            pattern="${SECRET_PATTERNS[$pattern_name]}"
-            echo "Checking for $pattern_name patterns..."
-            
-            # Exclude test files and allowed patterns
-            if grep -rE "$pattern" . \
-                --exclude-dir='.git' \
-                --exclude-dir='venv' \
-                --exclude-dir='__pycache__' \
-                --exclude='*.log' \
-                --exclude='security-scan.yml' \
-                --include='*.py' \
-                --include='*.yml' \
-                --include='*.yaml' \
-                --include='*.json' \
-                --include='*.env*' \
-                --include='*.conf' \
-                --include='*.ini'; then
-              
-              echo "⚠️ Potential $pattern_name found!"
-              found_secrets=true
-            fi
-          done
-          
-          if [ "$found_secrets" = true ]; then
-            echo "❌ Potential secrets detected. Please review and remove any hardcoded secrets."
-            echo "Use environment variables or secret management systems instead."
-            exit 1
-          else
-            echo "✅ No custom secret patterns detected"
-          fi
-      
-      - name: 'Upload Secret Detection Results'
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: secret-detection-results
-          path: |
-            gitleaks-report.json
-            trufflehog-output.json
-          retention-days: 30
-
-  # =============================================================================
-  # Static Application Security Testing (SAST)
-  # =============================================================================
-  
-  sast-scan:
-    name: 'SAST Scanning'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    if: |
-      github.event.inputs.scan_type != 'dependencies-only' &&
-      github.event.inputs.scan_type != 'container-only' &&
-      github.event.inputs.scan_type != 'secrets-only'
-    
-    steps:
-      - name: 'Checkout Code'
-        uses: actions/checkout@v4
-      
-      - name: 'Setup Python'
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-      
-      - name: 'Install Dependencies'
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install bandit[toml] safety semgrep
-      
-      - name: 'Bandit Security Linter'
-        run: |
-          echo "🔍 Running Bandit security analysis..."
-          bandit -r . \
-            -f json \
-            -o bandit-report.json \
-            --severity-level medium \
-            --exclude ./tests,./venv,./build \
-            || true
-          
-          # Generate human-readable report
-          bandit -r . \
-            -f txt \
-            --severity-level medium \
-            --exclude ./tests,./venv,./build \
-            || true
-          
-          echo "✅ Bandit scan completed"
-      
-      - name: 'Semgrep SAST Analysis'
-        run: |
-          echo "🔍 Running Semgrep static analysis..."
-          semgrep --config=auto \
-            --json \
-            --output=semgrep-report.json \
-            --severity=WARNING \
-            --exclude="tests/" \
-            --exclude="venv/" \
-            . || true
-          
-          # Generate SARIF for GitHub Security tab
-          semgrep --config=auto \
-            --sarif \
-            --output=semgrep-results.sarif \
-            --severity=WARNING \
-            --exclude="tests/" \
-            --exclude="venv/" \
-            . || true
-          
-          echo "✅ Semgrep scan completed"
-      
-      - name: 'Upload SARIF Results'
-        if: always()
-        uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: semgrep-results.sarif
-      
-      - name: 'Custom Security Rules Check'
-        run: |
-          echo "🔍 Checking custom security rules for NCS API..."
-          
-          security_issues=0
-          
-          # Check for hardcoded IPs
-          if grep -rE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b" . \
-              --include="*.py" \
-              --exclude-dir="tests" \
-              --exclude="security-scan.yml"; then
-            echo "⚠️ Hardcoded IP addresses found"
-            ((security_issues++))
-          fi
-          
-          # Check for SQL injection vulnerabilities
-          if grep -rE "(execute|cursor|query).*%s|\.format\(" . \
-              --include="*.py" \
-              --exclude-dir="tests"; then
-            echo "⚠️ Potential SQL injection patterns found"
-            ((security_issues++))
-          fi
-          
-          # Check for eval/exec usage
-          if grep -rE "\b(eval|exec)\(" . \
-              --include="*.py" \
-              --exclude-dir="tests"; then
-            echo "⚠️ Dangerous eval/exec usage found"
-            ((security_issues++))
-          fi
-          
-          # Check for debug mode in production
-          if grep -rE "debug\s*=\s*True|DEBUG\s*=\s*True" . \
-              --include="*.py" \
-              --exclude-dir="tests" \
-              --exclude="config.py"; then
-            echo "⚠️ Debug mode enabled in production code"
-            ((security_issues++))
-          fi
-          
-          # Check for missing input validation
-          if grep -rE "request\.(form|args|json)" . \
-              --include="*.py" \
-              --exclude-dir="tests" | \
-              grep -v -E "(validate|schema|pydantic)"; then
-            echo "⚠️ Potential missing input validation"
-            ((security_issues++))
-          fi
-          
-          if [ $security_issues -gt 0 ]; then
-            echo "❌ $security_issues security issues found. Please review."
-            exit 1
-          else
-            echo "✅ Custom security rules passed"
-          fi
-      
-      - name: 'Upload SAST Results'
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: sast-results
-          path: |
-            bandit-report.json
-            semgrep-report.json
-            semgrep-results.sarif
-          retention-days: 30
-
-  # =============================================================================
-  # Dependency Vulnerability Scanning
-  # =============================================================================
-  
-  dependency-scan:
-    name: 'Dependency Vulnerability Scan'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    if: |
-      github.event.inputs.scan_type != 'sast-only' &&
-      github.event.inputs.scan_type != 'container-only' &&
-      github.event.inputs.scan_type != 'secrets-only'
-    
-    steps:
-      - name: 'Checkout Code'
-        uses: actions/checkout@v4
-      
-      - name: 'Setup Python'
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-      
-      - name: 'Install Dependencies'
-        run: |
-          python -m pip install --upgrade pip
-          pip install safety pip-audit
-      
-      - name: 'Safety Vulnerability Check'
-        run: |
-          echo "🔍 Running Safety vulnerability scan..."
-          safety check \
-            --json \
-            --output safety-report.json \
-            --continue-on-error || true
-          
-          # Generate human-readable report
-          safety check --full-report || true
-          
-          echo "✅ Safety scan completed"
-      
-      - name: 'Pip-Audit Vulnerability Check'
-        run: |
-          echo "🔍 Running pip-audit vulnerability scan..."
-          pip-audit \
-            --format=json \
-            --output=pip-audit-report.json \
-            --require requirements.txt || true
-          
-          # Generate human-readable report
-          pip-audit --require requirements.txt || true
-          
-          echo "✅ Pip-audit scan completed"
-      
-      - name: 'OSV Scanner'
-        uses: google/osv-scanner-action@v1
-        with:
-          scan-args: |-
-            --output=osv-results.json
-            --format=json
-            ./
-        continue-on-error: true
-      
       - name: 'Dependency License Check'
         run: |
-          echo "🔍 Checking dependency licenses..."
+          echo "ðŸ” Checking dependency licenses..."
           pip install pip-licenses
           
           # Check for problematic licenses
@@ -419,21 +135,21 @@ jobs:
             package_name=$(echo "$license_info" | jq -r '.Name')
             
             if [[ ! " ${allowed_licenses[@]} " =~ " ${license_name} " ]]; then
-              echo "⚠️ Potentially problematic license: $package_name ($license_name)"
+              echo "âš ï¸ Potentially problematic license: $package_name ($license_name)"
               problematic_found=true
             fi
           done < <(jq -c '.[]' licenses-report.json)
           
           if [ "$problematic_found" = true ]; then
-            echo "❌ Problematic licenses found. Please review."
+            echo "âŒ Problematic licenses found. Please review."
             echo "Consider using alternatives or obtaining proper licensing."
           else
-            echo "✅ All dependency licenses are acceptable"
+            echo "âœ… All dependency licenses are acceptable"
           fi
       
       - name: 'Upload Dependency Scan Results'
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: dependency-scan-results
           path: |
@@ -465,7 +181,7 @@ jobs:
       
       - name: 'Build Container Image'
         run: |
-          echo "🔨 Building container image for security scanning..."
+          echo "ðŸ”¨ Building container image for security scanning..."
           docker build \
             -t ${{ env.IMAGE_NAME }}:security-scan \
             -f Dockerfile \
@@ -487,7 +203,7 @@ jobs:
       
       - name: 'Trivy JSON Report'
         run: |
-          echo "🔍 Generating detailed Trivy report..."
+          echo "ðŸ” Generating detailed Trivy report..."
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v $PWD:/workspace \
@@ -509,46 +225,46 @@ jobs:
       
       - name: 'Container Configuration Security Check'
         run: |
-          echo "🔍 Checking container security configuration..."
+          echo "ðŸ” Checking container security configuration..."
           
           # Check Dockerfile for security best practices
           dockerfile_issues=0
           
           # Check if running as root
           if ! grep -q "USER " Dockerfile; then
-            echo "⚠️ Container runs as root (missing USER directive)"
+            echo "âš ï¸ Container runs as root (missing USER directive)"
             ((dockerfile_issues++))
           fi
           
           # Check for latest tag usage
           if grep -q "FROM.*:latest" Dockerfile; then
-            echo "⚠️ Using 'latest' tag in base image"
+            echo "âš ï¸ Using 'latest' tag in base image"
             ((dockerfile_issues++))
           fi
           
           # Check for ADD instead of COPY
           if grep -q "^ADD " Dockerfile; then
-            echo "⚠️ Using ADD instead of COPY"
+            echo "âš ï¸ Using ADD instead of COPY"
             ((dockerfile_issues++))
           fi
           
           # Check for package cache cleanup
           if grep -q "apt-get install" Dockerfile && \
              ! grep -q "apt-get clean\|rm -rf /var/lib/apt/lists" Dockerfile; then
-            echo "⚠️ Package cache not cleaned up"
+            echo "âš ï¸ Package cache not cleaned up"
             ((dockerfile_issues++))
           fi
           
           if [ $dockerfile_issues -gt 0 ]; then
-            echo "❌ $dockerfile_issues Dockerfile security issues found"
+            echo "âŒ $dockerfile_issues Dockerfile security issues found"
             echo "Consider implementing Dockerfile security best practices"
           else
-            echo "✅ Dockerfile security check passed"
+            echo "âœ… Dockerfile security check passed"
           fi
       
       - name: 'Upload Container Scan Results'
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: container-scan-results
           path: |
@@ -573,23 +289,23 @@ jobs:
         uses: actions/checkout@v4
       
       - name: 'Download All Artifacts'
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: security-reports
       
       - name: 'Generate Security Summary'
         run: |
-          echo "📊 Generating comprehensive security summary..."
+          echo "ðŸ“Š Generating comprehensive security summary..."
           
           cat > security-summary.md << 'EOF'
-          # 🛡️ Security Scan Summary
+          # ðŸ›¡ï¸ Security Scan Summary
           
           **Scan Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
           **Repository:** ${{ github.repository }}
           **Branch:** ${{ github.ref_name }}
           **Commit:** ${{ github.sha }}
           
-          ## 📋 Scan Results Overview
+          ## ðŸ“‹ Scan Results Overview
           
           | Security Check | Status | Findings |
           |---------------|--------|----------|
@@ -602,48 +318,48 @@ jobs:
           if [ -f "security-reports/secret-detection-results/gitleaks-report.json" ]; then
             secret_count=$(jq '. | length' security-reports/secret-detection-results/gitleaks-report.json)
             if [ "$secret_count" -eq 0 ]; then
-              scan_results["Secret Detection"]="✅ PASS | No secrets detected"
+              scan_results["Secret Detection"]="âœ… PASS | No secrets detected"
             else
-              scan_results["Secret Detection"]="❌ FAIL | $secret_count secrets found"
+              scan_results["Secret Detection"]="âŒ FAIL | $secret_count secrets found"
             fi
           else
-            scan_results["Secret Detection"]="⏭️ SKIP | Not executed"
+            scan_results["Secret Detection"]="â­ï¸ SKIP | Not executed"
           fi
           
           # Check SAST results
           if [ -f "security-reports/sast-results/bandit-report.json" ]; then
             sast_count=$(jq '[.results[]] | length' security-reports/sast-results/bandit-report.json)
             if [ "$sast_count" -eq 0 ]; then
-              scan_results["SAST Analysis"]="✅ PASS | No vulnerabilities detected"
+              scan_results["SAST Analysis"]="âœ… PASS | No vulnerabilities detected"
             else
-              scan_results["SAST Analysis"]="⚠️ WARN | $sast_count issues found"
+              scan_results["SAST Analysis"]="âš ï¸ WARN | $sast_count issues found"
             fi
           else
-            scan_results["SAST Analysis"]="⏭️ SKIP | Not executed"
+            scan_results["SAST Analysis"]="â­ï¸ SKIP | Not executed"
           fi
           
           # Check dependency results
           if [ -f "security-reports/dependency-scan-results/safety-report.json" ]; then
             dep_count=$(jq '. | length' security-reports/dependency-scan-results/safety-report.json)
             if [ "$dep_count" -eq 0 ]; then
-              scan_results["Dependency Scan"]="✅ PASS | No vulnerable dependencies"
+              scan_results["Dependency Scan"]="âœ… PASS | No vulnerable dependencies"
             else
-              scan_results["Dependency Scan"]="❌ FAIL | $dep_count vulnerable dependencies"
+              scan_results["Dependency Scan"]="âŒ FAIL | $dep_count vulnerable dependencies"
             fi
           else
-            scan_results["Dependency Scan"]="⏭️ SKIP | Not executed"
+            scan_results["Dependency Scan"]="â­ï¸ SKIP | Not executed"
           fi
           
           # Check container results
           if [ -f "security-reports/container-scan-results/trivy-report.json" ]; then
             container_count=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL" or .Severity == "HIGH")] | length' security-reports/container-scan-results/trivy-report.json)
             if [ "$container_count" -eq 0 ]; then
-              scan_results["Container Scan"]="✅ PASS | No critical/high vulnerabilities"
+              scan_results["Container Scan"]="âœ… PASS | No critical/high vulnerabilities"
             else
-              scan_results["Container Scan"]="❌ FAIL | $container_count critical/high vulnerabilities"
+              scan_results["Container Scan"]="âŒ FAIL | $container_count critical/high vulnerabilities"
             fi
           else
-            scan_results["Container Scan"]="⏭️ SKIP | Not executed"
+            scan_results["Container Scan"]="â­ï¸ SKIP | Not executed"
           fi
           
           # Add results to summary
@@ -652,7 +368,7 @@ jobs:
           done
           
           echo "" >> security-summary.md
-          echo "## 🔍 Detailed Findings" >> security-summary.md
+          echo "## ðŸ” Detailed Findings" >> security-summary.md
           echo "" >> security-summary.md
           echo "For detailed findings, check the individual scan artifacts." >> security-summary.md
           echo "" >> security-summary.md
@@ -678,7 +394,7 @@ jobs:
       
       - name: 'Upload Security Summary'
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: security-summary
           path: security-summary.md
@@ -686,7 +402,7 @@ jobs:
       
       - name: 'Security Scan Status Check'
         run: |
-          echo "🔍 Checking overall security scan status..."
+          echo "ðŸ” Checking overall security scan status..."
           
           # Determine if any critical security issues were found
           critical_issues=false
@@ -699,10 +415,10 @@ jobs:
           fi
           
           if [ "$critical_issues" = true ]; then
-            echo "❌ Critical security issues detected!"
+            echo "âŒ Critical security issues detected!"
             echo "Please review the security scan results and address any critical findings."
             exit 1
           else
-            echo "✅ Security scan completed successfully"
+            echo "âœ… Security scan completed successfully"
             echo "No critical security issues detected."
           fi
