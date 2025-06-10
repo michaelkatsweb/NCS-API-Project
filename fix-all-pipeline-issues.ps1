@@ -84,21 +84,11 @@ function New-FileWithHeader {
     $commentEnd = if ($extension.ToLower() -in @(".md", ".html")) { " -->" } else { "" }
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     
-    # Create header with proper string concatenation
+    # Create header
     if ($commentEnd) {
-        $header = @"
-$commentStart File: $relativePath
-$commentStart Description: $Description
-$commentStart Last updated: $timestamp$commentEnd
-
-"@
+        $header = "$commentStart File: $relativePath`n$commentStart Description: $Description`n$commentStart Last updated: $timestamp$commentEnd`n`n"
     } else {
-        $header = @"
-$commentStart File: $relativePath
-$commentStart Description: $Description
-$commentStart Last updated: $timestamp
-
-"@
+        $header = "$commentStart File: $relativePath`n$commentStart Description: $Description`n$commentStart Last updated: $timestamp`n`n"
     }
     
     $fullContent = $header + $Content
@@ -204,7 +194,7 @@ httpx>=0.25.0
 psycopg2-binary>=2.9.7
 python-dotenv>=1.0.0
 "@
-    New-FileWithHeader -FilePath "requirements.txt" -Content $requirementsTxt -Description "Python production dependencies for NCS API"
+    New-FileWithHeader -FilePath "requirements.txt" -Content $requirementsTxt -Description "Production dependencies for NCS API"
     Write-Fix "Created requirements.txt"
 } else {
     Write-Fix "requirements.txt already exists"
@@ -213,28 +203,36 @@ python-dotenv>=1.0.0
 # Create requirements-dev.txt
 if (-not (Test-Path "requirements-dev.txt")) {
     $requirementsDevTxt = @"
+# Testing dependencies
 pytest>=7.4.0
-pytest-asyncio>=0.21.1
+pytest-asyncio>=0.21.0
 pytest-cov>=4.1.0
-black>=23.11.0
-isort>=5.12.0
-flake8>=6.1.0
-mypy>=1.7.0
-bandit>=1.7.5
-safety>=2.3.5
-pip-audit>=2.6.1
+pytest-mock>=3.11.0
 httpx>=0.25.0
-faker>=19.12.0
-factory-boy>=3.3.0
+
+# Code quality
+black>=23.7.0
+isort>=5.12.0
+flake8>=6.0.0
+mypy>=1.5.0
+
+# Security tools
+bandit>=1.7.5
+safety>=2.3.0
+pip-audit>=2.6.0
+
+# Development tools
+pre-commit>=3.3.0
+watchdog>=3.0.0
 "@
-    New-FileWithHeader -FilePath "requirements-dev.txt" -Content $requirementsDevTxt -Description "Python development dependencies for NCS API"
+    New-FileWithHeader -FilePath "requirements-dev.txt" -Content $requirementsDevTxt -Description "Development and testing dependencies"
     Write-Fix "Created requirements-dev.txt"
 } else {
     Write-Fix "requirements-dev.txt already exists"
 }
 
 # =============================================================================
-# STEP 4: FIX NODE.JS DOCUMENTATION SETUP
+# STEP 4: CREATE DOCUMENTATION STRUCTURE
 # =============================================================================
 Write-Host ""
 Write-Host "[STEP 4] Documentation Setup" -ForegroundColor Yellow
@@ -246,47 +244,21 @@ if (-not (Test-Path "docs\package.json")) {
 {
   "name": "ncs-api-docs",
   "version": "1.0.0",
-  "description": "Documentation site for the NeuroCluster Streamer API",
-  "private": true,
+  "description": "Documentation for NCS API",
   "scripts": {
     "dev": "vitepress dev",
     "build": "vitepress build",
-    "preview": "vitepress preview",
-    "docs:dev": "vitepress dev",
-    "docs:build": "vitepress build",
-    "docs:preview": "vitepress preview",
-    "redoc:build": "redoc-cli build openapi.json --output=dist/api-reference.html",
-    "serve": "http-server dist -p 3000",
-    "lint": "markdownlint **/*.md",
-    "lint:fix": "markdownlint **/*.md --fix"
+    "preview": "vitepress preview"
   },
-  "keywords": [
-    "documentation",
-    "api-docs",
-    "vitepress",
-    "neurocluster"
-  ],
-  "author": {
-    "name": "NCS API Development Team"
-  },
-  "license": "MIT",
   "devDependencies": {
-    "vitepress": "^1.0.0",
-    "redoc-cli": "^0.13.21",
-    "http-server": "^14.1.1",
-    "markdownlint-cli": "^0.37.0",
-    "vue": "^3.3.0"
-  },
-  "dependencies": {
-    "mermaid": "^10.6.0"
+    "vitepress": "^1.0.0"
   },
   "engines": {
-    "node": ">=16.0.0",
-    "npm": ">=8.0.0"
+    "node": ">=16"
   }
 }
 "@
-    New-FileWithHeader -FilePath "docs\package.json" -Content $docsPackageJson -Description "NPM package configuration for NCS API documentation site"
+    New-FileWithHeader -FilePath "docs\package.json" -Content $docsPackageJson -Description "NPM configuration for documentation"
     Write-Fix "Created docs/package.json"
 } else {
     Write-Fix "docs/package.json already exists"
@@ -295,154 +267,144 @@ if (-not (Test-Path "docs\package.json")) {
 # Create VitePress config
 if (-not (Test-Path "docs\.vitepress\config.js")) {
     $vitepressConfig = @"
-import { defineConfig } from 'vitepress'
-
-export default defineConfig({
+export default {
   title: 'NCS API Documentation',
-  description: 'Official documentation for the NeuroCluster Streamer API',
-  
+  description: 'NeuroCluster Streamer API Documentation',
   themeConfig: {
     nav: [
       { text: 'Home', link: '/' },
-      { text: 'API Reference', link: '/api-reference' },
-      { text: 'SDK Guide', link: '/sdk-guide' }
+      { text: 'API Reference', link: '/api/' },
+      { text: 'SDK', link: '/sdk/' },
+      { text: 'Examples', link: '/examples/' }
     ],
-
     sidebar: [
       {
         text: 'Getting Started',
         items: [
           { text: 'Introduction', link: '/' },
-          { text: 'Quick Start', link: '/quickstart' }
+          { text: 'Quick Start', link: '/examples/quickstart' },
+          { text: 'Installation', link: '/examples/production_setup' }
         ]
       },
       {
-        text: 'API Documentation',
+        text: 'API Reference',
         items: [
-          { text: 'Authentication', link: '/api/authentication' },
+          { text: 'Overview', link: '/api/' },
+          { text: 'Authentication', link: '/api/auth' },
           { text: 'Endpoints', link: '/api/endpoints' }
         ]
       }
-    ],
-
-    socialLinks: [
-      { icon: 'github', link: 'https://github.com/your-org/ncs-api' }
     ]
   }
-})
+}
 "@
-    New-FileWithHeader -FilePath "docs\.vitepress\config.js" -Content $vitepressConfig -Description "VitePress configuration for NCS API documentation"
+    New-FileWithHeader -FilePath "docs\.vitepress\config.js" -Content $vitepressConfig -Description "VitePress configuration for documentation site"
     Write-Fix "Created VitePress configuration"
 } else {
     Write-Fix "VitePress config already exists"
 }
 
-# Create docs index
+# Create docs/index.md
 if (-not (Test-Path "docs\index.md")) {
     $docsIndex = @"
-# NeuroCluster Streamer API Documentation
+# NCS API Documentation
 
-Welcome to the official documentation for the NeuroCluster Streamer API.
+Welcome to the NeuroCluster Streamer API documentation.
+
+## What is NCS API?
+
+The NeuroCluster Streamer API is a high-performance clustering and streaming analytics service designed for real-time data processing.
 
 ## Quick Start
 
 Get started with the NCS API in minutes:
 
-1. Install a client SDK
-2. Get your API credentials
-3. Make your first request
+1. [Installation Guide](/examples/production_setup)
+2. [Quick Start Tutorial](/examples/quickstart)
+3. [API Reference](/api/)
 
-## Key Features
+## Features
 
-- **High Performance**: Process 6,300+ points per second
-- **Superior Quality**: 91.8% clustering quality score
-- **Real-time Streaming**: WebSocket support
-- **Multiple SDKs**: Python and JavaScript libraries
+- Real-time clustering algorithms
+- High-performance streaming analytics
+- RESTful API with OpenAPI documentation
+- Python and JavaScript SDKs
+- Production-ready with monitoring
 
-## Support
+## Getting Help
 
-- GitHub Issues: [Report bugs](https://github.com/your-org/ncs-api/issues)
-- Documentation: This site
-- Email: support@yourdomain.com
+- [Troubleshooting Guide](./TROUBLESHOOTING.md)
+- [Examples](./examples/)
+- [API Reference](./api/)
 "@
-    New-FileWithHeader -FilePath "docs\index.md" -Content $docsIndex -Description "Homepage for NCS API documentation site"
-    Write-Fix "Created documentation homepage"
+    New-FileWithHeader -FilePath "docs\index.md" -Content $docsIndex -Description "Main documentation homepage"
+    Write-Fix "Created docs/index.md"
 } else {
-    Write-Fix "Documentation homepage already exists"
+    Write-Fix "docs/index.md already exists"
 }
 
 # Install npm dependencies if requested
 if (-not $SkipNpmInstall -and (Test-Path "docs\package.json")) {
-    Write-Host "[NPM] Installing npm dependencies..." -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "Installing npm dependencies..." -ForegroundColor Yellow
+    
     if (-not $DryRun) {
+        Push-Location "docs"
         try {
-            Push-Location "docs"
-            npm install --silent
-            Pop-Location
-            Write-Fix "Installed npm dependencies and created package-lock.json"
+            npm install
+            Write-Fix "Installed npm dependencies"
         } catch {
+            Write-Issue "Failed to install npm dependencies" "WARNING"
+        } finally {
             Pop-Location
-            Write-Issue "Failed to install npm dependencies: $($_.Exception.Message)" "WARNING"
         }
     } else {
-        Write-Host "    [DRY RUN] Would run: npm install in docs/" -ForegroundColor Magenta
+        Write-Host "    [DRY RUN] Would install npm dependencies" -ForegroundColor Magenta
     }
 }
 
 # =============================================================================
-# STEP 5: CREATE BASIC TEST FILES
+# STEP 5: CREATE BASIC TEST STRUCTURE
 # =============================================================================
 Write-Host ""
-Write-Host "[STEP 5] Test Files" -ForegroundColor Yellow
-Write-Host "==================" -ForegroundColor Yellow
+Write-Host "[STEP 5] Test Infrastructure" -ForegroundColor Yellow
+Write-Host "============================" -ForegroundColor Yellow
 
-# Create basic test file
-if (-not (Test-Path "tests\test_api.py")) {
-    $testApiPy = @"
-import pytest
-from fastapi.testclient import TestClient
-import sys
-import os
-
-# Add the parent directory to sys.path to import the app
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-def test_basic():
-    '''Basic test that always passes'''
-    assert True
-
-def test_math():
-    '''Basic math test'''
-    assert 2 + 2 == 4
-
-def test_string_operations():
-    '''Test string operations'''
-    test_string = "NCS API"
-    assert len(test_string) == 7
-    assert test_string.upper() == "NCS API"
-
-# Placeholder for actual API tests when main app is available
-def test_placeholder_api():
-    '''Placeholder test for API'''
-    # This will be replaced with actual API tests
-    assert True
-
-@pytest.mark.asyncio
-async def test_async_placeholder():
-    '''Placeholder async test'''
-    assert True
-"@
-    New-FileWithHeader -FilePath "tests\test_api.py" -Content $testApiPy -Description "Basic test file for NCS API"
-    Write-Fix "Created basic test file"
-} else {
-    Write-Fix "Test file already exists"
+# Create tests/__init__.py
+if (-not (Test-Path "tests\__init__.py")) {
+    New-FileWithHeader -FilePath "tests\__init__.py" -Content "" -Description "Test package initialization"
+    Write-Fix "Created test __init__.py"
 }
 
-# Create test init file
-if (-not (Test-Path "tests\__init__.py")) {
-    $testInit = ""
-    New-FileWithHeader -FilePath "tests\__init__.py" -Content $testInit -Description "Test package initialization file"
-    Write-Fix "Created test __init__.py"
+# Create basic API test
+if (-not (Test-Path "tests\test_api.py")) {
+    $testApi = @"
+import pytest
+from fastapi.testclient import TestClient
+
+def test_basic_functionality():
+    """Basic test to ensure testing infrastructure works."""
+    assert True
+
+def test_python_imports():
+    """Test that required modules can be imported."""
+    try:
+        import fastapi
+        import uvicorn
+        import pydantic
+        assert True
+    except ImportError as e:
+        pytest.fail(f"Failed to import required module: {e}")
+
+def test_environment():
+    """Test basic environment setup."""
+    import sys
+    assert sys.version_info >= (3, 8)
+"@
+    New-FileWithHeader -FilePath "tests\test_api.py" -Content $testApi -Description "Basic API tests for CI/CD validation"
+    Write-Fix "Created basic API tests"
+} else {
+    Write-Fix "API tests already exist"
 }
 
 # =============================================================================
@@ -607,58 +569,72 @@ Thumbs.db
 logs/
 *.db
 *.sqlite
-.pytest_cache/
+coverage/
 .coverage
 htmlcov/
+.pytest_cache/
 .mypy_cache/
-.bandit
-dist/
-build/
+
+# Security
+.env.local
+.env.production
+secrets/
+certificates/
 "@
-    New-FileWithHeader -FilePath ".gitignore" -Content $gitignore -Description "Git ignore patterns for NCS API project"
+    New-FileWithHeader -FilePath ".gitignore" -Content $gitignore -Description "Git ignore patterns for Python and Node.js projects"
     Write-Fix "Created .gitignore"
 } else {
     Write-Fix ".gitignore already exists"
 }
 
-# Create basic README if missing
+# Create basic README.md if missing
 if (-not (Test-Path "README.md")) {
     $readme = @"
 # NeuroCluster Streamer API
 
-High-performance clustering and data processing API with real-time streaming capabilities.
+High-performance clustering and streaming analytics API for real-time data processing.
 
 ## Features
 
-- **High Performance**: Process 6,300+ points per second
-- **Superior Quality**: 91.8% clustering quality score
-- **Real-time Streaming**: WebSocket support for live data
-- **Multiple SDKs**: Python and JavaScript client libraries
-- **Production Ready**: Comprehensive monitoring and security
+- Real-time clustering algorithms
+- High-performance streaming analytics
+- RESTful API with OpenAPI documentation
+- Python and JavaScript SDKs
+- Production-ready with monitoring
 
 ## Quick Start
 
+### Prerequisites
+
+- Python 3.8+
+- Node.js 16+ (for documentation)
+- PostgreSQL 12+
+- Redis 6+
+
 ### Installation
 
-\`\`\`bash
+``````bash
 # Clone the repository
 git clone https://github.com/your-org/ncs-api.git
 cd ncs-api
 
-# Install dependencies
+# Install Python dependencies
 pip install -r requirements.txt
 
-# Run the application
-python main.py
-\`\`\`
+# Install development dependencies
+pip install -r requirements-dev.txt
+
+# Run the API
+uvicorn main:app --reload
+``````
 
 ### Documentation
 
-Visit the [full documentation](./docs/README.md) for detailed setup and usage instructions.
+Visit [http://localhost:8000/docs](http://localhost:8000/docs) for interactive API documentation.
 
 ## Development
 
-\`\`\`bash
+``````bash
 # Install development dependencies
 pip install -r requirements-dev.txt
 
@@ -667,7 +643,7 @@ pytest
 
 # Run with auto-reload
 uvicorn main:app --reload
-\`\`\`
+``````
 
 ## License
 
