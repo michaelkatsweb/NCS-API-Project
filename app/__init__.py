@@ -25,7 +25,7 @@ __email__ = "dev@ncs-api.com"
 __all__ = [
     # Models
     "DataPoint",
-    "ProcessPointsRequest", 
+    "ProcessPointsRequest",
     "ProcessPointResult",
     "ClusterInfo",
     "ClustersSummary",
@@ -37,7 +37,6 @@ __all__ = [
     "PaginationParams",
     "BatchProcessingOptions",
     "ClusteringConfiguration",
-    
     # Exceptions
     "NCSAPIException",
     "AlgorithmException",
@@ -47,7 +46,6 @@ __all__ = [
     "ConfigurationException",
     "SecurityException",
     "RateLimitException",
-    
     # Utilities
     "generate_request_id",
     "validate_data_point",

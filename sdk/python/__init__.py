@@ -24,19 +24,16 @@ __url__ = "https://github.com/your-org/ncs-api"
 from .ncs_client import (
     # Main client
     NCSClient,
-    
     # Data models
     Cluster,
     ProcessingResult,
     AlgorithmStatus,
     HealthStatus,
-    
     # Type definitions
     Point,
     Points,
-    
     # Utilities
-    create_client
+    create_client,
 )
 
 from .async_client import (
@@ -44,10 +41,9 @@ from .async_client import (
     AsyncNCSClient,
     StreamingConnection,
     AsyncRateLimiter,
-    
     # Async utilities
     create_async_client,
-    async_client_context
+    async_client_context,
 )
 
 # Import all exceptions with consistent naming
@@ -57,13 +53,15 @@ from .ncs_client import (
     RateLimitError,
     ValidationError,
     ProcessingError,
-    ConnectionError
+    ConnectionError,
 )
+
 
 # Package-level convenience functions
 def get_version() -> str:
     """Get the current package version."""
     return __version__
+
 
 def get_client_info() -> dict:
     """Get comprehensive client information."""
@@ -74,148 +72,159 @@ def get_client_info() -> dict:
         "description": __description__,
         "license": __license__,
         "url": __url__,
-        "python_requires": ">=3.8"
+        "python_requires": ">=3.8",
     }
+
 
 # Configuration helpers
 def configure_logging(level: str = "INFO"):
     """
     Configure logging for the NCS client.
-    
+
     Args:
         level: Logging level (DEBUG, INFO, WARNING, ERROR)
     """
     import logging
-    
+
     # Configure root logger for NCS
-    logger = logging.getLogger('ncs_client')
+    logger = logging.getLogger("ncs_client")
     logger.setLevel(getattr(logging, level.upper()))
-    
+
     # Add handler if none exists
     if not logger.handlers:
         handler = logging.StreamHandler()
         formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
         handler.setFormatter(formatter)
         logger.addHandler(handler)
-    
+
     logger.info(f"NCS SDK logging configured at {level} level")
+
 
 def load_config_from_env() -> dict:
     """
     Load client configuration from environment variables.
-    
+
     Returns:
         Configuration dictionary suitable for client initialization
     """
     import os
-    
+
     config = {}
-    
+
     # Core settings
-    if os.getenv('NCS_API_URL'):
-        config['base_url'] = os.getenv('NCS_API_URL')
-    
-    if os.getenv('NCS_API_KEY'):
-        config['api_key'] = os.getenv('NCS_API_KEY')
-    
-    if os.getenv('NCS_JWT_TOKEN'):
-        config['jwt_token'] = os.getenv('NCS_JWT_TOKEN')
-    
+    if os.getenv("NCS_API_URL"):
+        config["base_url"] = os.getenv("NCS_API_URL")
+
+    if os.getenv("NCS_API_KEY"):
+        config["api_key"] = os.getenv("NCS_API_KEY")
+
+    if os.getenv("NCS_JWT_TOKEN"):
+        config["jwt_token"] = os.getenv("NCS_JWT_TOKEN")
+
     # Optional settings with defaults
-    config['timeout'] = float(os.getenv('NCS_TIMEOUT', '30.0'))
-    config['max_retries'] = int(os.getenv('NCS_MAX_RETRIES', '3'))
-    config['retry_delay'] = float(os.getenv('NCS_RETRY_DELAY', '1.0'))
-    config['verify_ssl'] = os.getenv('NCS_VERIFY_SSL', 'true').lower() == 'true'
-    config['log_level'] = os.getenv('NCS_LOG_LEVEL', 'INFO')
-    
+    config["timeout"] = float(os.getenv("NCS_TIMEOUT", "30.0"))
+    config["max_retries"] = int(os.getenv("NCS_MAX_RETRIES", "3"))
+    config["retry_delay"] = float(os.getenv("NCS_RETRY_DELAY", "1.0"))
+    config["verify_ssl"] = os.getenv("NCS_VERIFY_SSL", "true").lower() == "true"
+    config["log_level"] = os.getenv("NCS_LOG_LEVEL", "INFO")
+
     return {k: v for k, v in config.items() if v is not None}
+
 
 def create_client_from_env(**kwargs) -> NCSClient:
     """
     Create a client using environment variable configuration.
-    
+
     Args:
         **kwargs: Additional configuration to override environment settings
-        
+
     Returns:
         Configured NCSClient instance
-        
+
     Raises:
         ValueError: If required environment variables are missing
     """
     import os
-    
+
     config = load_config_from_env()
     config.update(kwargs)
-    
-    if 'base_url' not in config:
+
+    if "base_url" not in config:
         raise ValueError("NCS_API_URL environment variable is required")
-    
-    if 'api_key' not in config and 'jwt_token' not in config:
-        raise ValueError("Either NCS_API_KEY or NCS_JWT_TOKEN environment variable is required")
-    
+
+    if "api_key" not in config and "jwt_token" not in config:
+        raise ValueError(
+            "Either NCS_API_KEY or NCS_JWT_TOKEN environment variable is required"
+        )
+
     return NCSClient(**config)
+
 
 async def create_async_client_from_env(**kwargs) -> AsyncNCSClient:
     """
     Create an async client using environment variable configuration.
-    
+
     Args:
         **kwargs: Additional configuration to override environment settings
-        
+
     Returns:
         Configured AsyncNCSClient instance
-        
+
     Raises:
         ValueError: If required environment variables are missing
     """
     import os
-    
+
     config = load_config_from_env()
     config.update(kwargs)
-    
-    if 'base_url' not in config:
+
+    if "base_url" not in config:
         raise ValueError("NCS_API_URL environment variable is required")
-    
-    if 'api_key' not in config and 'jwt_token' not in config:
-        raise ValueError("Either NCS_API_KEY or NCS_JWT_TOKEN environment variable is required")
-    
+
+    if "api_key" not in config and "jwt_token" not in config:
+        raise ValueError(
+            "Either NCS_API_KEY or NCS_JWT_TOKEN environment variable is required"
+        )
+
     return AsyncNCSClient(**config)
+
 
 # Version checking
 def check_compatibility():
     """Check if the current environment is compatible with the SDK."""
     import sys
     import warnings
-    
+
     # Check Python version
     if sys.version_info < (3, 8):
         raise RuntimeError("NCS Python SDK requires Python 3.8 or higher")
-    
+
     # Check for optional dependencies
     try:
         import numpy
     except ImportError:
         warnings.warn(
             "NumPy is not installed. Some performance features may be limited.",
-            UserWarning
+            UserWarning,
         )
-    
+
     try:
         import pandas
     except ImportError:
         warnings.warn(
             "Pandas is not installed. DataFrame processing features are not available.",
-            UserWarning
+            UserWarning,
         )
+
 
 # Run compatibility check on import
 try:
     check_compatibility()
 except Exception as e:
     import warnings
+
     warnings.warn(f"Compatibility check failed: {e}", UserWarning)
 
 # Package-level constants
@@ -234,38 +243,31 @@ __all__ = [
     "__description__",
     "__license__",
     "__url__",
-    
     # Main classes
     "NCSClient",
     "AsyncNCSClient",
-    
     # Data models
     "Cluster",
-    "ProcessingResult", 
+    "ProcessingResult",
     "AlgorithmStatus",
     "HealthStatus",
-    
     # Streaming
     "StreamingConnection",
     "AsyncRateLimiter",
-    
     # Exceptions
     "NCSError",
     "AuthenticationError",
-    "RateLimitError", 
+    "RateLimitError",
     "ValidationError",
     "ProcessingError",
     "ConnectionError",
-    
     # Type definitions
     "Point",
     "Points",
-    
     # Factory functions
     "create_client",
     "create_async_client",
     "async_client_context",
-    
     # Configuration utilities
     "get_version",
     "get_client_info",
@@ -274,17 +276,17 @@ __all__ = [
     "create_client_from_env",
     "create_async_client_from_env",
     "check_compatibility",
-    
     # Constants
     "DEFAULT_TIMEOUT",
-    "DEFAULT_MAX_RETRIES", 
+    "DEFAULT_MAX_RETRIES",
     "DEFAULT_RETRY_DELAY",
     "MAX_BATCH_SIZE",
-    "DEFAULT_RATE_LIMIT"
+    "DEFAULT_RATE_LIMIT",
 ]
 
 # Package initialization message
 import logging
+
 logger = logging.getLogger(__name__)
 logger.debug(f"NCS Python SDK v{__version__} initialized")
 

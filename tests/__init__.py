@@ -35,7 +35,7 @@ SAMPLE_DATA_POINTS = [
     {"id": "test_2", "features": [1.1, 2.1, 3.1]},
     {"id": "test_3", "features": [5.0, 6.0, 7.0]},
     {"id": "test_4", "features": [5.1, 6.1, 7.1]},
-    {"id": "test_5", "features": [10.0, 11.0, 12.0]}
+    {"id": "test_5", "features": [10.0, 11.0, 12.0]},
 ]
 
 SAMPLE_CLUSTERING_CONFIG = {
@@ -43,7 +43,7 @@ SAMPLE_CLUSTERING_CONFIG = {
     "min_cluster_size": 2,
     "max_clusters": 100,
     "outlier_threshold": 0.75,
-    "adaptive_threshold": True
+    "adaptive_threshold": True,
 }
 
 # Test user credentials
@@ -53,22 +53,22 @@ TEST_USERS = {
         "email": "admin@test.com",
         "password": "admin_password_123",
         "role": "admin",
-        "scopes": ["read", "write", "admin"]
+        "scopes": ["read", "write", "admin"],
     },
     "user": {
         "user_id": "test_user",
-        "email": "user@test.com", 
+        "email": "user@test.com",
         "password": "user_password_123",
         "role": "user",
-        "scopes": ["read", "write"]
+        "scopes": ["read", "write"],
     },
     "readonly": {
         "user_id": "test_readonly",
         "email": "readonly@test.com",
-        "password": "readonly_password_123", 
+        "password": "readonly_password_123",
         "role": "readonly",
-        "scopes": ["read"]
-    }
+        "scopes": ["read"],
+    },
 }
 
 # API endpoint constants
@@ -81,7 +81,7 @@ API_ENDPOINTS = {
     "get_clusters": "/clusters",
     "get_session": "/session/{session_id}",
     "get_statistics": "/statistics",
-    "get_metrics": "/metrics"
+    "get_metrics": "/metrics",
 }
 
 # Test timeouts and limits
@@ -89,7 +89,7 @@ TEST_TIMEOUTS = {
     "api_request": 30,  # seconds
     "algorithm_processing": 10,  # seconds
     "database_operation": 5,  # seconds
-    "auth_operation": 3  # seconds
+    "auth_operation": 3,  # seconds
 }
 
 # Performance test parameters
@@ -100,19 +100,19 @@ PERFORMANCE_TEST_CONFIG = {
     "stress_batch": 50000,
     "concurrent_users": [1, 5, 10, 20],
     "target_response_time_ms": 200,
-    "target_throughput_per_sec": 1000
+    "target_throughput_per_sec": 1000,
 }
 
 # Test markers for pytest
 TEST_MARKERS = {
     "unit": "Unit tests for individual components",
-    "integration": "Integration tests for component interactions", 
+    "integration": "Integration tests for component interactions",
     "e2e": "End-to-end tests for complete workflows",
     "performance": "Performance and load tests",
     "security": "Security and authentication tests",
     "slow": "Tests that take longer than 5 seconds",
     "database": "Tests that require database connectivity",
-    "external": "Tests that require external services"
+    "external": "Tests that require external services",
 }
 
 __version__ = "1.0.0"
