@@ -153,7 +153,7 @@ psutil>=5.9.0                    # System and process utilities
 objgraph>=3.6.0                  # Object reference tracking
 
 # Profiling tools
-cProfile>=0.1                    # Built-in profiler
+#cProfile>=0.1                    # Built-in profiler
 snakeviz>=2.2.0                  # cProfile visualization
 
 # ============================================================================

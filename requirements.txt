@@ -5,7 +5,7 @@ pydantic==2.5.0
 
 # High-performance computation
 numpy==1.26.2
-numba==0.58.1
+nnumba==0.61.2
 
 # Production optimizations
 orjson==3.9.10
