@@ -177,24 +177,36 @@ Write-Host "============================" -ForegroundColor Yellow
 # Create requirements.txt
 if (-not (Test-Path "requirements.txt")) {
     $requirementsTxt = @"
-fastapi>=0.104.0
-uvicorn[standard]>=0.24.0
-pydantic>=2.5.0
-sqlalchemy>=2.0.23
-alembic>=1.13.0
-redis>=5.0.1
-numpy>=1.24.0
-scipy>=1.11.0
-pandas>=2.1.0
-python-jose[cryptography]>=3.3.0
-passlib[bcrypt]>=1.7.4
-python-multipart>=0.0.6
-aiofiles>=23.2.1
-httpx>=0.25.0
-psycopg2-binary>=2.9.7
-python-dotenv>=1.0.0
+# Core FastAPI dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+
+# High-performance computation  
+numpy==1.26.2
+numba==0.61.2
+
+# Production optimizations
+orjson==3.9.10
+python-multipart==0.0.6
+
+# Authentication & Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-decouple==3.8
+
+# Monitoring & Logging
+prometheus-client==0.19.0
+structlog==23.2.0
+
+# Development dependencies
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2
+black==23.11.0
+flake8==6.1.0
 "@
-    New-FileWithHeader -FilePath "requirements.txt" -Content $requirementsTxt -Description "Production dependencies for NCS API"
+    New-FileWithHeader -FilePath "requirements.txt" -Content $requirementsTxt -Description "Production dependencies for NCS API (Python 3.12 compatible)"
     Write-Fix "Created requirements.txt"
 } else {
     Write-Fix "requirements.txt already exists"
@@ -730,10 +742,11 @@ Write-Host "   Go to GitHub Actions -> Pipeline Test -> Run workflow" -Foregroun
 
 Write-Host ""
 Write-Host "[IMPORTANT FIXES APPLIED]:" -ForegroundColor Yellow
-Write-Host "* Fixed truffleHog version compatibility issue (was >=3.45.0, now using core security tools only)" -ForegroundColor White
+Write-Host "* Fixed numba version for Python 3.12 compatibility (updated 0.58.1 -> 0.61.2)" -ForegroundColor White
 Write-Host "* Streamlined security dependencies to prevent version conflicts" -ForegroundColor White
 Write-Host "* Created missing documentation structure for Node.js caching" -ForegroundColor White
 Write-Host "* Added basic test infrastructure to prevent pytest failures" -ForegroundColor White
+Write-Host "* Maintained exact version pinning pattern to match existing requirements.txt" -ForegroundColor White
 
 Write-Host ""
 if ($DryRun) {
