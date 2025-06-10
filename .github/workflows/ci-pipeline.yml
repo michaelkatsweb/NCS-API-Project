@@ -1,6 +1,6 @@
 ﻿# File: .github/workflows/ci-pipeline.yml
 # Description: Modern CI pipeline with updated GitHub Actions
-# Last updated: 2025-06-10 17:41:00
+# Last updated: 2025-06-10 17:46:00
 
 name: 'CI Pipeline'
 
