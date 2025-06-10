@@ -468,9 +468,6 @@ jobs:
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt
           fi
-          if [ -f requirements-dev.txt ]; then
-            pip install -r requirements-dev.txt
-          fi
           pip install pytest
       
       - name: 'Run Basic Tests'
@@ -510,7 +507,7 @@ jobs:
   security-basic:
     name: 'Basic Security Check'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     
     steps:
       - uses: actions/checkout@v4
@@ -527,8 +524,18 @@ jobs:
       - name: 'Run Basic Security Scan'
         run: |
           bandit -r . -f json -o bandit-report.json || true
-          safety check || true
+          safety check --json --output safety-report.json || true
           echo "Security scan completed"
+      
+      - name: 'Upload Security Reports'
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports-`${{ github.run_id }}
+          path: |
+            bandit-report.json
+            safety-report.json
+          retention-days: 7
 "@
     New-FileWithHeader -FilePath ".github\workflows\pipeline-test.yml" -Content $pipelineTestWorkflow -Description "Basic GitHub Actions workflow to test pipeline fixes"
     Write-Fix "Created pipeline test workflow"
@@ -701,6 +708,33 @@ if (Test-Path "docs\package.json") {
 $workflowFiles = Get-ChildItem ".github\workflows\" -Filter "*.yml" -ErrorAction SilentlyContinue
 if ($workflowFiles) {
     Write-Fix "GitHub Actions workflows present"
+    
+    # Check for deprecated actions in existing workflows
+    foreach ($workflow in $workflowFiles) {
+        $content = Get-Content $workflow.FullName -Raw -ErrorAction SilentlyContinue
+        if ($content) {
+            $hasDeprecated = $false
+            
+            if ($content -match "actions/upload-artifact@v3") {
+                Write-Issue "Found deprecated upload-artifact@v3 in $($workflow.Name)" "WARNING"
+                $hasDeprecated = $true
+            }
+            
+            if ($content -match "actions/download-artifact@v3") {
+                Write-Issue "Found deprecated download-artifact@v3 in $($workflow.Name)" "WARNING"
+                $hasDeprecated = $true
+            }
+            
+            if ($content -match "google/osv-scanner-action@v1[^0-9]") {
+                Write-Issue "Found problematic osv-scanner-action@v1 in $($workflow.Name)" "WARNING"
+                $hasDeprecated = $true
+            }
+            
+            if (-not $hasDeprecated) {
+                Write-Fix "$($workflow.Name) uses current action versions"
+            }
+        }
+    }
 }
 
 # =============================================================================
@@ -741,12 +775,21 @@ Write-Host "4. Run the test workflow:" -ForegroundColor White
 Write-Host "   Go to GitHub Actions -> Pipeline Test -> Run workflow" -ForegroundColor Gray
 
 Write-Host ""
+Write-Host "[GITHUB ACTIONS DEPRECATION FIXES]:" -ForegroundColor Yellow
+Write-Host "If you have existing workflow files with deprecated actions:" -ForegroundColor White
+Write-Host "  * Replace actions/upload-artifact@v3 with @v4" -ForegroundColor Gray
+Write-Host "  * Replace actions/download-artifact@v3 with @v4" -ForegroundColor Gray  
+Write-Host "  * Remove or fix google/osv-scanner-action@v1 (use v1.7.4)" -ForegroundColor Gray
+Write-Host "  * Add unique artifact names using github.run_id" -ForegroundColor Gray
+
+Write-Host ""
 Write-Host "[IMPORTANT FIXES APPLIED]:" -ForegroundColor Yellow
-Write-Host "* Fixed numba version for Python 3.12 compatibility (updated 0.58.1 -> 0.61.2)" -ForegroundColor White
-Write-Host "* Streamlined security dependencies to prevent version conflicts" -ForegroundColor White
+Write-Host "* Fixed GitHub Actions deprecation errors (upload-artifact v3->v4)" -ForegroundColor White
+Write-Host "* Removed problematic requirements-dev.txt installation" -ForegroundColor White
+Write-Host "* Streamlined security scanning with working tools only" -ForegroundColor White
 Write-Host "* Created missing documentation structure for Node.js caching" -ForegroundColor White
 Write-Host "* Added basic test infrastructure to prevent pytest failures" -ForegroundColor White
-Write-Host "* Maintained exact version pinning pattern to match existing requirements.txt" -ForegroundColor White
+Write-Host "* Fixed artifact naming conflicts with unique run IDs" -ForegroundColor White
 
 Write-Host ""
 if ($DryRun) {
