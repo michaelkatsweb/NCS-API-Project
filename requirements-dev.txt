@@ -129,7 +129,7 @@ pip-audit>=2.6.0                 # Dependency vulnerability scanner
 
 # Secrets detection
 detect-secrets>=1.4.0            # Secrets detection in code
-truffleHog>=3.45.0               # Git secrets scanning
+#truffleHog>=3.45.0               # Git secrets scanning
 
 # ============================================================================
 # CI/CD and Automation
