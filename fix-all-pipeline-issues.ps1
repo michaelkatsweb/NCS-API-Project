@@ -1,5 +1,5 @@
-# EMERGENCY PIPELINE FIX
-# This script fixes the immediate critical issues causing pipeline failures
+# FIX SDK EXAMPLES FOR LOCALHOST DEVELOPMENT
+# This script updates all SDK examples to use localhost URLs for development
 
 param(
     [switch]$DryRun = $false
@@ -9,730 +9,1177 @@ function Write-Fix($message) {
     Write-Host "✅ $message" -ForegroundColor Green
 }
 
-function Write-Issue($message) {
-    Write-Host "⚠️  $message" -ForegroundColor Yellow
-}
-
-Write-Host "🆘 EMERGENCY PIPELINE FIX" -ForegroundColor Red
-Write-Host "=========================" -ForegroundColor Red
-Write-Host "Fixing critical issues causing pipeline failures..." -ForegroundColor Yellow
+Write-Host "🔧 FIXING SDK EXAMPLES FOR LOCALHOST DEVELOPMENT" -ForegroundColor Cyan
+Write-Host "=================================================" -ForegroundColor Cyan
+Write-Host "Updating all examples to use localhost instead of external URLs..." -ForegroundColor Yellow
 
 # =============================================================================
-# CRITICAL FIX 1: GITHUB ACTIONS WORKFLOW
+# FIX 1: UPDATE BASIC_USAGE.PY FOR LOCALHOST
 # =============================================================================
 Write-Host ""
-Write-Host "[FIX 1] GitHub Actions - Remove --check from Black" -ForegroundColor Yellow
+Write-Host "[FIX 1] sdk/python/examples/basic_usage.py" -ForegroundColor Yellow
 
-# Fix the workflow to use black . instead of black --check --diff .
-$fixedWorkflow = @"
-name: 'NCS API CI/CD Pipeline'
-
-on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main, develop ]
-  workflow_dispatch:
-
-permissions:
-  contents: write
-  pull-requests: write
-
-env:
-  PYTHON_VERSION: '3.11'
-
-jobs:
-  code-quality:
-    name: 'Code Quality & Auto-Format'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    
-    steps:
-      - name: 'Checkout Code'
-        uses: actions/checkout@v4
-        with:
-          token: `${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-      
-      - name: 'Setup Python'
-        uses: actions/setup-python@v5
-        with:
-          python-version: `${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-      
-      - name: 'Install Tools'
-        run: |
-          python -m pip install --upgrade pip
-          pip install black==23.11.0 isort==5.12.0 flake8==6.1.0
-      
-      - name: 'Auto-Format Code'
-        run: |
-          # Format code instead of checking
-          black .
-          isort .
-          echo "✅ Code formatting applied"
-      
-      - name: 'Commit Formatting'
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          if ! git diff --quiet; then
-            git add .
-            git commit -m "style: auto-format code [skip ci]" || true
-            git push || true
-            echo "✅ Formatting changes committed"
-          else
-            echo "✅ No formatting changes needed"
-          fi
-      
-      - name: 'Code Quality Check'
-        run: |
-          flake8 . --max-line-length=88 --extend-ignore=E203,W503 --exclude=venv,env,.git,__pycache__ || echo "Linting completed with warnings"
-          echo "✅ Linting check completed"
-
-  test:
-    name: 'Tests'
-    runs-on: ubuntu-latest
-    needs: code-quality
-    timeout-minutes: 15
-    
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: `${{ github.event.pull_request.head.ref || github.ref }}
-      
-      - name: 'Setup Python'
-        uses: actions/setup-python@v5
-        with:
-          python-version: `${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-      
-      - name: 'Install Dependencies'
-        run: |
-          python -m pip install --upgrade pip
-          pip install fastapi uvicorn pytest pytest-asyncio pydantic httpx
-          pip install -r requirements.txt || echo "No requirements.txt"
-          pip install -r requirements-dev.txt || echo "No requirements-dev.txt"
-      
-      - name: 'Run Tests'
-        run: |
-          python -m pytest tests/ -v --tb=short || echo "Tests completed"
-          echo "✅ Test execution completed"
-
-  security:
-    name: 'Security Check'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: 'Setup Python'
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      
-      - name: 'Security Scan'
-        run: |
-          pip install bandit safety
-          bandit -r . -f json -o bandit-report.json || true
-          safety check || true
-          echo "✅ Security scan completed"
-"@
-
-if (-not $DryRun) {
-    Set-Content -Path ".github/workflows/ci-cd.yml" -Value $fixedWorkflow -Encoding UTF8
-}
-Write-Fix "Fixed GitHub Actions workflow - removed --check from Black"
-
-# =============================================================================
-# CRITICAL FIX 2: WORKING MAIN_SECURE.PY WITH EXPORTED APP
-# =============================================================================
-Write-Host ""
-Write-Host "[FIX 2] Create Working main_secure.py with exported app" -ForegroundColor Yellow
-
-$workingMainSecure = @"
+$fixedBasicUsage = @"
 #!/usr/bin/env python3
 """
-NCS API - Working FastAPI application
-Emergency fix to resolve import issues
+NeuroCluster Streamer Python SDK - Basic Usage Example (LOCALHOST VERSION)
+==========================================================================
+Demonstrates basic usage patterns for the NCS Python SDK with local development server
+
+This example shows:
+- Client initialization for localhost development
+- Basic data point processing
+- Error handling patterns
+- Health checking with local API
+
+Author: NCS API Development Team
+Year: 2025
 """
 
-import time
-import uuid
-import logging
-from typing import Any, Dict, List, Optional
-from contextlib import asynccontextmanager
-
-import uvicorn
-from fastapi import FastAPI, HTTPException, Request, Depends, status
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# =============================================================================
-# PYDANTIC MODELS
-# =============================================================================
-
-class DataPoint(BaseModel):
-    """Single data point for clustering"""
-    coordinates: List[float] = Field(..., min_items=1, max_items=1000)
-    metadata: Optional[Dict[str, Any]] = Field(default=None)
-
-class ProcessPointRequest(BaseModel):
-    """Request for processing single data point"""
-    point: DataPoint
-
-class ProcessBatchRequest(BaseModel):
-    """Request for processing multiple data points"""
-    points: List[DataPoint] = Field(..., min_items=1, max_items=1000)
-
-class ClusterResult(BaseModel):
-    """Result of clustering operation"""
-    cluster_id: int
-    confidence: float
-    is_new_cluster: bool
-    metadata: Optional[Dict[str, Any]] = None
-
-class ProcessPointResponse(BaseModel):
-    """Response for single point processing"""
-    request_id: str
-    result: ClusterResult
-    processing_time_ms: float
-
-class ProcessBatchResponse(BaseModel):
-    """Response for batch processing"""
-    request_id: str
-    results: List[ClusterResult]
-    processing_time_ms: float
-    points_processed: int
-
-class HealthResponse(BaseModel):
-    """Health check response"""
-    status: str
-    timestamp: str
-    version: str
-    algorithm_ready: bool
-    uptime_seconds: float
-
-# =============================================================================
-# MOCK NCS ALGORITHM (Fallback)
-# =============================================================================
-
-class MockNCSAlgorithm:
-    """Mock NCS algorithm for testing/fallback"""
-    
-    def __init__(self, **kwargs):
-        self.ready = True
-        self.clusters = []
-        
-    def process_point(self, coordinates):
-        """Mock process point"""
-        return {
-            "cluster_id": len(coordinates) % 3,  # Simple mock logic
-            "confidence": 0.95,
-            "is_new_cluster": False
-        }
-        
-    def process_batch(self, points):
-        """Mock process batch"""
-        return [self.process_point(point) for point in points]
-
-# =============================================================================
-# APPLICATION STATE
-# =============================================================================
-
-class AppState:
-    def __init__(self):
-        self.startup_time: float = time.time()
-        self.is_ready: bool = False
-        self.request_count: int = 0
-        self.ncs_instance = None
-
-app_state = AppState()
-
-# =============================================================================
-# APPLICATION LIFECYCLE
-# =============================================================================
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifespan management"""
-    logger.info("🚀 Starting NCS API...")
-    
-    # Initialize algorithm (with fallback)
-    try:
-        # Try to import real NCS algorithm
-        from NCS_V8 import NeuroClusterStreamer
-        app_state.ncs_instance = NeuroClusterStreamer(
-            base_threshold=0.71,
-            learning_rate=0.06,
-            max_clusters=30
-        )
-        logger.info("✅ Real NCS algorithm loaded")
-    except ImportError:
-        # Fallback to mock
-        app_state.ncs_instance = MockNCSAlgorithm()
-        logger.info("✅ Mock NCS algorithm loaded (fallback)")
-    
-    app_state.is_ready = True
-    logger.info("✅ NCS API ready!")
-    
-    yield
-    
-    # Cleanup
-    logger.info("🛑 Shutting down NCS API...")
-    app_state.is_ready = False
-
-# =============================================================================
-# FASTAPI APPLICATION
-# =============================================================================
-
-app = FastAPI(
-    title="NCS API",
-    description="NeuroCluster Streaming API for real-time data clustering",
-    version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    lifespan=lifespan
-)
-
-# =============================================================================
-# MIDDLEWARE
-# =============================================================================
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Configure properly in production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-app.add_middleware(GZipMiddleware, minimum_size=1000)
-
-@app.middleware("http")
-async def add_request_id(request: Request, call_next):
-    """Add request ID to all requests"""
-    request_id = str(uuid.uuid4())
-    request.state.request_id = request_id
-    
-    start_time = time.time()
-    response = await call_next(request)
-    process_time = (time.time() - start_time) * 1000
-    
-    response.headers["X-Request-ID"] = request_id
-    response.headers["X-Process-Time"] = f"{process_time:.2f}ms"
-    
-    app_state.request_count += 1
-    return response
-
-# =============================================================================
-# DEPENDENCIES
-# =============================================================================
-
-async def get_ncs_algorithm():
-    """Get NCS algorithm instance"""
-    if not app_state.is_ready or app_state.ncs_instance is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="NCS algorithm not ready"
-        )
-    return app_state.ncs_instance
-
-# =============================================================================
-# API ENDPOINTS
-# =============================================================================
-
-@app.get("/", tags=["Root"])
-async def root():
-    """Root endpoint"""
-    return {
-        "message": "NCS API - NeuroCluster Streaming",
-        "version": "1.0.0",
-        "docs": "/docs",
-        "health": "/health"
-    }
-
-@app.get("/health", response_model=HealthResponse, tags=["Health"])
-async def health_check():
-    """Health check endpoint"""
-    return HealthResponse(
-        status="healthy" if app_state.is_ready else "initializing",
-        timestamp=time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
-        version="1.0.0",
-        algorithm_ready=app_state.is_ready,
-        uptime_seconds=time.time() - app_state.startup_time
-    )
-
-@app.post("/api/v1/process/point", response_model=ProcessPointResponse, tags=["Processing"])
-async def process_single_point(
-    request: ProcessPointRequest,
-    current_request: Request,
-    ncs = Depends(get_ncs_algorithm)
-):
-    """Process a single data point"""
-    start_time = time.time()
-    request_id = current_request.state.request_id
-    
-    try:
-        # Process the point
-        result = ncs.process_point(request.point.coordinates)
-        
-        # Create response
-        cluster_result = ClusterResult(
-            cluster_id=result.get("cluster_id", 0),
-            confidence=result.get("confidence", 0.0),
-            is_new_cluster=result.get("is_new_cluster", False),
-            metadata=request.point.metadata
-        )
-        
-        processing_time = (time.time() - start_time) * 1000
-        
-        return ProcessPointResponse(
-            request_id=request_id,
-            result=cluster_result,
-            processing_time_ms=processing_time
-        )
-        
-    except Exception as e:
-        logger.error(f"Error processing point {request_id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Processing failed: {str(e)}"
-        )
-
-@app.post("/api/v1/process/batch", response_model=ProcessBatchResponse, tags=["Processing"])
-async def process_batch_points(
-    request: ProcessBatchRequest,
-    current_request: Request,
-    ncs = Depends(get_ncs_algorithm)
-):
-    """Process multiple data points"""
-    start_time = time.time()
-    request_id = current_request.state.request_id
-    
-    try:
-        # Extract coordinates
-        coordinates = [point.coordinates for point in request.points]
-        
-        # Process the batch
-        batch_results = ncs.process_batch(coordinates)
-        
-        # Create results
-        results = []
-        for i, result in enumerate(batch_results):
-            cluster_result = ClusterResult(
-                cluster_id=result.get("cluster_id", 0),
-                confidence=result.get("confidence", 0.0),
-                is_new_cluster=result.get("is_new_cluster", False),
-                metadata=request.points[i].metadata
-            )
-            results.append(cluster_result)
-        
-        processing_time = (time.time() - start_time) * 1000
-        
-        return ProcessBatchResponse(
-            request_id=request_id,
-            results=results,
-            processing_time_ms=processing_time,
-            points_processed=len(request.points)
-        )
-        
-    except Exception as e:
-        logger.error(f"Error processing batch {request_id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Batch processing failed: {str(e)}"
-        )
-
-@app.get("/api/v1/stats", tags=["Statistics"])
-async def get_stats():
-    """Get API statistics"""
-    return {
-        "requests_processed": app_state.request_count,
-        "uptime_seconds": time.time() - app_state.startup_time,
-        "algorithm_ready": app_state.is_ready,
-        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
-    }
-
-# =============================================================================
-# ERROR HANDLERS
-# =============================================================================
-
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "error": exc.detail,
-            "status_code": exc.status_code,
-            "request_id": getattr(request.state, "request_id", "unknown")
-        }
-    )
-
-@app.exception_handler(Exception)
-async def general_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Unhandled exception: {exc}")
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": "Internal server error",
-            "status_code": 500,
-            "request_id": getattr(request.state, "request_id", "unknown")
-        }
-    )
-
-# =============================================================================
-# DEVELOPMENT SERVER
-# =============================================================================
-
-if __name__ == "__main__":
-    uvicorn.run(
-        "main_secure:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
-    )
-
-# =============================================================================
-# EXPORT APP FOR TESTING
-# =============================================================================
-# This is the critical line that was missing!
-__all__ = ["app"]
-"@
-
-if (-not $DryRun) {
-    Set-Content -Path "main_secure.py" -Value $workingMainSecure -Encoding UTF8
-}
-Write-Fix "Created working main_secure.py with properly exported app"
-
-# =============================================================================
-# CRITICAL FIX 3: SIMPLE CONFTEST.PY
-# =============================================================================
-Write-Host ""
-Write-Host "[FIX 3] Fix conftest.py to avoid import errors" -ForegroundColor Yellow
-
-$fixedConftest = @"
-#!/usr/bin/env python3
-"""
-Pytest configuration for NCS API tests
-Emergency fix to resolve import issues
-"""
-
-import pytest
-import sys
 import os
-from fastapi.testclient import TestClient
+import sys
+import logging
+from typing import List
+import random
+import time
+import requests
 
-# Add the parent directory to sys.path
+# Add the parent directory to path for development
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-@pytest.fixture(scope="session")
-def app():
-    """Get FastAPI app instance"""
+def check_local_server(base_url="http://localhost:8000"):
+    """Check if local NCS API server is running"""
     try:
-        from main_secure import app
-        return app
-    except ImportError as e:
-        # Fallback minimal app for testing
-        from fastapi import FastAPI
-        fallback_app = FastAPI(title="Test App")
+        response = requests.get(f"{base_url}/health", timeout=5)
+        if response.status_code == 200:
+            print(f"✅ Local NCS API server is running at {base_url}")
+            return True
+        else:
+            print(f"⚠️  Local server responded with status {response.status_code}")
+            return False
+    except requests.exceptions.ConnectionError:
+        print(f"❌ Cannot connect to local server at {base_url}")
+        print(f"💡 Start the server with: python main_secure.py")
+        return False
+    except Exception as e:
+        print(f"❌ Error checking server: {e}")
+        return False
+
+def generate_sample_points(count: int = 10) -> List[List[float]]:
+    """Generate sample data points for testing"""
+    points = []
+    for i in range(count):
+        # Create clusters around different centers
+        if i < count // 3:
+            center = [1.0, 1.0, 1.0]  # Cluster 1
+        elif i < 2 * count // 3:
+            center = [5.0, 5.0, 5.0]  # Cluster 2
+        else:
+            center = [10.0, 2.0, 8.0]  # Cluster 3
         
-        @fallback_app.get("/health")
-        async def health():
-            return {"status": "healthy"}
-            
-        return fallback_app
+        # Add noise around centers
+        point = [
+            center[0] + random.gauss(0, 0.5),
+            center[1] + random.gauss(0, 0.5),
+            center[2] + random.gauss(0, 0.5)
+        ]
+        points.append(point)
+    
+    return points
 
-@pytest.fixture
-def client(app):
-    """Create test client"""
-    with TestClient(app) as test_client:
-        yield test_client
+def test_basic_api_calls():
+    """Test basic API calls to localhost"""
+    base_url = "http://localhost:8000"
+    
+    print("🧪 Testing basic API calls...")
+    
+    # Test health endpoint
+    try:
+        response = requests.get(f"{base_url}/health", timeout=10)
+        if response.status_code == 200:
+            health_data = response.json()
+            print(f"✅ Health check: {health_data.get('status', 'unknown')}")
+            print(f"   Algorithm ready: {health_data.get('algorithm_ready', 'unknown')}")
+            print(f"   Uptime: {health_data.get('uptime_seconds', 0):.1f}s")
+        else:
+            print(f"⚠️  Health check failed: {response.status_code}")
+    except Exception as e:
+        print(f"❌ Health check error: {e}")
+    
+    # Test root endpoint
+    try:
+        response = requests.get(f"{base_url}/", timeout=10)
+        if response.status_code == 200:
+            root_data = response.json()
+            print(f"✅ Root endpoint: {root_data.get('message', 'No message')}")
+        else:
+            print(f"⚠️  Root endpoint failed: {response.status_code}")
+    except Exception as e:
+        print(f"❌ Root endpoint error: {e}")
+    
+    # Test API docs
+    try:
+        response = requests.get(f"{base_url}/docs", timeout=10)
+        if response.status_code == 200:
+            print(f"✅ API docs accessible at {base_url}/docs")
+        else:
+            print(f"⚠️  API docs not accessible: {response.status_code}")
+    except Exception as e:
+        print(f"❌ API docs error: {e}")
 
-@pytest.fixture
-def sample_data_point():
-    """Sample data point for testing"""
-    return {
-        "coordinates": [1.0, 2.0, 3.0],
-        "metadata": {"source": "test"}
+def test_process_single_point():
+    """Test processing a single data point"""
+    base_url = "http://localhost:8000"
+    
+    print("📍 Testing single point processing...")
+    
+    test_point = {
+        "point": {
+            "coordinates": [1.5, 2.5, 3.5],
+            "metadata": {"source": "test", "timestamp": time.time()}
+        }
     }
+    
+    try:
+        response = requests.post(
+            f"{base_url}/api/v1/process/point", 
+            json=test_point,
+            timeout=15
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            print(f"✅ Point processed successfully!")
+            print(f"   Request ID: {result.get('request_id', 'unknown')}")
+            print(f"   Cluster ID: {result.get('result', {}).get('cluster_id', 'unknown')}")
+            print(f"   Confidence: {result.get('result', {}).get('confidence', 0):.3f}")
+            print(f"   Processing time: {result.get('processing_time_ms', 0):.2f}ms")
+        elif response.status_code == 503:
+            print("⚠️  Algorithm not ready yet (this is normal on startup)")
+        else:
+            print(f"❌ Point processing failed: {response.status_code}")
+            print(f"   Response: {response.text}")
+    except Exception as e:
+        print(f"❌ Point processing error: {e}")
 
-@pytest.fixture
-def sample_batch_data():
-    """Sample batch data for testing"""
-    return {
+def test_process_batch():
+    """Test batch processing"""
+    base_url = "http://localhost:8000"
+    
+    print("📦 Testing batch processing...")
+    
+    # Generate sample points
+    sample_points = generate_sample_points(5)
+    
+    batch_request = {
         "points": [
-            {"coordinates": [1.0, 2.0, 3.0], "metadata": {"id": 1}},
-            {"coordinates": [4.0, 5.0, 6.0], "metadata": {"id": 2}},
+            {
+                "coordinates": point,
+                "metadata": {"batch_id": 1, "point_index": i}
+            }
+            for i, point in enumerate(sample_points)
         ]
     }
+    
+    try:
+        response = requests.post(
+            f"{base_url}/api/v1/process/batch",
+            json=batch_request,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            print(f"✅ Batch processed successfully!")
+            print(f"   Request ID: {result.get('request_id', 'unknown')}")
+            print(f"   Points processed: {result.get('points_processed', 0)}")
+            print(f"   Processing time: {result.get('processing_time_ms', 0):.2f}ms")
+            
+            results = result.get('results', [])
+            if results:
+                clusters_found = set(r.get('cluster_id') for r in results)
+                print(f"   Unique clusters: {len(clusters_found)}")
+                print(f"   Cluster IDs: {sorted(clusters_found)}")
+        elif response.status_code == 503:
+            print("⚠️  Algorithm not ready yet (this is normal on startup)")
+        else:
+            print(f"❌ Batch processing failed: {response.status_code}")
+            print(f"   Response: {response.text}")
+    except Exception as e:
+        print(f"❌ Batch processing error: {e}")
 
-# Configure pytest
-def pytest_configure(config):
-    """Configure pytest"""
-    config.addinivalue_line("markers", "unit: mark test as a unit test")
-    config.addinivalue_line("markers", "integration: mark test as an integration test")
+def test_stats_endpoint():
+    """Test statistics endpoint"""
+    base_url = "http://localhost:8000"
+    
+    print("📊 Testing stats endpoint...")
+    
+    try:
+        response = requests.get(f"{base_url}/api/v1/stats", timeout=10)
+        
+        if response.status_code == 200:
+            stats = response.json()
+            print(f"✅ Stats retrieved successfully!")
+            print(f"   Requests processed: {stats.get('requests_processed', 0)}")
+            print(f"   Uptime: {stats.get('uptime_seconds', 0):.1f}s")
+            print(f"   Algorithm ready: {stats.get('algorithm_ready', False)}")
+        elif response.status_code in [401, 403]:
+            print("⚠️  Stats endpoint requires authentication (this is normal)")
+        else:
+            print(f"❌ Stats failed: {response.status_code}")
+    except Exception as e:
+        print(f"❌ Stats error: {e}")
+
+def main():
+    """Main example function demonstrating localhost SDK usage."""
+    
+    print("🚀 NeuroCluster Streamer Python SDK - Localhost Development Example")
+    print("=" * 70)
+    print()
+    print("This example demonstrates using the NCS API with your local development server.")
+    print("Make sure to start your server first: python main_secure.py")
+    print()
+    
+    # Check if local server is running
+    base_url = "http://localhost:8000"
+    if not check_local_server(base_url):
+        print()
+        print("🔧 TO START THE LOCAL SERVER:")
+        print("   1. Open a new terminal")
+        print("   2. Navigate to your project directory")  
+        print("   3. Run: python main_secure.py")
+        print("   4. Wait for 'Uvicorn running on http://0.0.0.0:8000'")
+        print("   5. Then run this example again")
+        print()
+        return
+    
+    print()
+    print("🧪 Running API Tests...")
+    print("=" * 30)
+    
+    # Run all tests
+    test_basic_api_calls()
+    print()
+    test_process_single_point()
+    print()
+    test_process_batch()
+    print()
+    test_stats_endpoint()
+    
+    print()
+    print("🎉 LOCALHOST TESTING COMPLETE!")
+    print("=" * 35)
+    print()
+    print("💡 NEXT STEPS:")
+    print("   • Visit http://localhost:8000/docs to see the interactive API docs")
+    print("   • Visit http://localhost:8000/health to check API health")
+    print("   • Modify this script to test your own data points")
+    print("   • When ready for production, update URLs to your deployed API")
+    print()
+
+if __name__ == "__main__":
+    main()
 "@
 
 if (-not $DryRun) {
-    if (-not (Test-Path "tests")) {
-        New-Item -ItemType Directory -Path "tests" -Force | Out-Null
+    if (-not (Test-Path "sdk/python/examples")) {
+        New-Item -ItemType Directory -Path "sdk/python/examples" -Force | Out-Null
     }
-    Set-Content -Path "tests/conftest.py" -Value $fixedConftest -Encoding UTF8
+    Set-Content -Path "sdk/python/examples/basic_usage.py" -Value $fixedBasicUsage -Encoding UTF8
 }
-Write-Fix "Fixed conftest.py with proper import handling"
+Write-Fix "Updated basic_usage.py for localhost development"
 
 # =============================================================================
-# CRITICAL FIX 4: WORKING TEST FILE
+# FIX 2: UPDATE BATCH_PROCESSING.PY FOR LOCALHOST
 # =============================================================================
 Write-Host ""
-Write-Host "[FIX 4] Create working test file" -ForegroundColor Yellow
+Write-Host "[FIX 2] sdk/python/examples/batch_processing.py" -ForegroundColor Yellow
 
-$workingTest = @"
+$fixedBatchProcessing = @"
 #!/usr/bin/env python3
 """
-Working tests for NCS API
-Emergency fix to resolve test failures
+NeuroCluster Streamer Python SDK - Batch Processing Example (LOCALHOST VERSION)
+===============================================================================
+Demonstrates batch processing patterns for the NCS Python SDK with local development server
+
+This example shows:
+- Large batch processing with localhost
+- Memory-efficient processing
+- Progress monitoring
+- Performance optimization for local development
+
+Author: NCS API Development Team
+Year: 2025
 """
 
-import pytest
-from fastapi.testclient import TestClient
+import os
+import sys
+import time
+import random
+import requests
+from typing import List, Dict, Any
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
-def test_health_endpoint(client):
-    """Test health endpoint"""
-    response = client.get("/health")
-    assert response.status_code == 200
-    data = response.json()
-    assert "status" in data
+def generate_test_dataset(num_points: int = 100, num_clusters: int = 3) -> List[List[float]]:
+    """Generate a test dataset with known cluster structure"""
+    points = []
+    points_per_cluster = num_points // num_clusters
+    
+    # Define cluster centers
+    cluster_centers = [
+        [0.0, 0.0, 0.0],
+        [10.0, 0.0, 0.0], 
+        [5.0, 10.0, 0.0]
+    ]
+    
+    for cluster_id in range(num_clusters):
+        center = cluster_centers[cluster_id % len(cluster_centers)]
+        
+        for _ in range(points_per_cluster):
+            # Add gaussian noise around cluster center
+            point = [
+                center[0] + random.gauss(0, 1.0),
+                center[1] + random.gauss(0, 1.0), 
+                center[2] + random.gauss(0, 1.0)
+            ]
+            points.append(point)
+    
+    # Add some random outliers
+    outliers_count = num_points - len(points)
+    for _ in range(outliers_count):
+        outlier = [
+            random.uniform(-20, 20),
+            random.uniform(-20, 20),
+            random.uniform(-20, 20)
+        ]
+        points.append(outlier)
+    
+    return points
 
-def test_root_endpoint(client):
-    """Test root endpoint"""
-    response = client.get("/")
-    assert response.status_code == 200
-    data = response.json()
-    assert "message" in data
-
-def test_api_docs_accessible(client):
-    """Test that API docs are accessible"""
-    response = client.get("/docs")
-    assert response.status_code == 200
-
-def test_basic_functionality():
-    """Basic test that always passes"""
-    assert 2 + 2 == 4
-    assert "test" == "test"
-
-def test_data_point_structure(sample_data_point):
-    """Test data point structure"""
-    assert "coordinates" in sample_data_point
-    assert isinstance(sample_data_point["coordinates"], list)
-    assert len(sample_data_point["coordinates"]) > 0
-
-def test_batch_data_structure(sample_batch_data):
-    """Test batch data structure"""
-    assert "points" in sample_batch_data
-    assert isinstance(sample_batch_data["points"], list)
-    assert len(sample_batch_data["points"]) > 0
-
-@pytest.mark.asyncio
-async def test_async_functionality():
-    """Test async operation"""
-    import asyncio
-    await asyncio.sleep(0.01)
-    assert True
-
-# Integration tests (if app is working)
-def test_process_point_endpoint_exists(client):
-    """Test that process point endpoint exists"""
-    # This might fail if algorithm isn't ready, but that's OK for now
-    response = client.post("/api/v1/process/point", json={
-        "point": {
-            "coordinates": [1.0, 2.0, 3.0],
-            "metadata": {"test": True}
+def process_batch_localhost(points: List[List[float]], batch_id: int = 0) -> Dict[str, Any]:
+    """Process a batch of points using localhost API"""
+    base_url = "http://localhost:8000"
+    
+    batch_request = {
+        "points": [
+            {
+                "coordinates": point,
+                "metadata": {"batch_id": batch_id, "point_index": i}
+            }
+            for i, point in enumerate(points)
+        ]
+    }
+    
+    try:
+        start_time = time.time()
+        response = requests.post(
+            f"{base_url}/api/v1/process/batch",
+            json=batch_request,
+            timeout=60  # Longer timeout for large batches
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            processing_time = time.time() - start_time
+            
+            return {
+                "success": True,
+                "batch_id": batch_id,
+                "points_processed": result.get("points_processed", 0),
+                "processing_time_ms": result.get("processing_time_ms", 0),
+                "network_time_ms": processing_time * 1000,
+                "results": result.get("results", []),
+                "request_id": result.get("request_id", "unknown")
+            }
+        else:
+            return {
+                "success": False,
+                "batch_id": batch_id,
+                "error": f"HTTP {response.status_code}: {response.text}",
+                "points_attempted": len(points)
+            }
+    except Exception as e:
+        return {
+            "success": False,
+            "batch_id": batch_id,
+            "error": str(e),
+            "points_attempted": len(points)
         }
-    })
-    # Accept both success (200) and service unavailable (503)
-    assert response.status_code in [200, 503]
 
-def test_stats_endpoint(client):
-    """Test stats endpoint"""
-    response = client.get("/api/v1/stats")
-    # Should work even if algorithm isn't ready
-    assert response.status_code in [200, 401, 403]  # Might require auth
+def example_simple_batch_processing():
+    """Example 1: Simple batch processing with localhost"""
+    print("📦 Example 1: Simple Batch Processing")
+    print("-" * 40)
+    
+    # Check if server is running
+    base_url = "http://localhost:8000"
+    try:
+        response = requests.get(f"{base_url}/health", timeout=5)
+        if response.status_code != 200:
+            print("❌ Local server not running. Start with: python main_secure.py")
+            return
+    except:
+        print("❌ Cannot connect to local server. Start with: python main_secure.py")
+        return
+    
+    # Generate test data
+    test_points = generate_test_dataset(num_points=50, num_clusters=3)
+    print(f"📊 Generated {len(test_points)} test points")
+    
+    # Process the batch
+    print("⚡ Processing batch...")
+    result = process_batch_localhost(test_points, batch_id=1)
+    
+    if result["success"]:
+        print(f"✅ Batch processing successful!")
+        print(f"   Points processed: {result['points_processed']}")
+        print(f"   API processing time: {result['processing_time_ms']:.2f}ms")
+        print(f"   Network time: {result['network_time_ms']:.2f}ms")
+        print(f"   Request ID: {result['request_id']}")
+        
+        # Analyze results
+        results = result["results"]
+        if results:
+            cluster_ids = [r.get("cluster_id") for r in results]
+            unique_clusters = set(cluster_ids)
+            print(f"   Clusters found: {len(unique_clusters)}")
+            print(f"   Cluster distribution: {dict((cid, cluster_ids.count(cid)) for cid in unique_clusters)}")
+    else:
+        print(f"❌ Batch processing failed: {result['error']}")
+
+def example_multi_batch_processing():
+    """Example 2: Processing multiple batches sequentially"""
+    print("📦 Example 2: Multi-Batch Processing")
+    print("-" * 40)
+    
+    # Generate multiple smaller batches
+    num_batches = 5
+    batch_size = 20
+    
+    print(f"📊 Processing {num_batches} batches of {batch_size} points each...")
+    
+    total_start_time = time.time()
+    successful_batches = 0
+    total_points_processed = 0
+    
+    for batch_id in range(num_batches):
+        print(f"   Processing batch {batch_id + 1}/{num_batches}...")
+        
+        # Generate batch data
+        batch_points = generate_test_dataset(num_points=batch_size, num_clusters=2)
+        
+        # Process batch
+        result = process_batch_localhost(batch_points, batch_id=batch_id)
+        
+        if result["success"]:
+            successful_batches += 1
+            total_points_processed += result["points_processed"]
+            print(f"   ✅ Batch {batch_id + 1} completed in {result['processing_time_ms']:.2f}ms")
+        else:
+            print(f"   ❌ Batch {batch_id + 1} failed: {result['error']}")
+    
+    total_time = time.time() - total_start_time
+    
+    print()
+    print(f"📊 Multi-batch processing complete!")
+    print(f"   Successful batches: {successful_batches}/{num_batches}")
+    print(f"   Total points processed: {total_points_processed}")
+    print(f"   Total time: {total_time:.2f}s")
+    print(f"   Average rate: {total_points_processed / total_time:.1f} points/sec")
+
+def example_concurrent_batch_processing():
+    """Example 3: Concurrent batch processing (use with caution on localhost)"""
+    print("⚡ Example 3: Concurrent Batch Processing")
+    print("-" * 40)
+    
+    # Generate batches
+    num_batches = 3  # Keep small for localhost
+    batch_size = 15
+    
+    batches = []
+    for i in range(num_batches):
+        batch_points = generate_test_dataset(num_points=batch_size, num_clusters=2)
+        batches.append((batch_points, i))
+    
+    print(f"📊 Processing {num_batches} batches concurrently...")
+    print("⚠️  Note: Concurrent processing may overwhelm localhost server")
+    
+    # Process concurrently with limited workers
+    max_workers = 2  # Limited for localhost
+    successful_results = []
+    failed_results = []
+    
+    start_time = time.time()
+    
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all tasks
+        future_to_batch = {
+            executor.submit(process_batch_localhost, points, batch_id): batch_id
+            for points, batch_id in batches
+        }
+        
+        # Collect results
+        for future in as_completed(future_to_batch):
+            batch_id = future_to_batch[future]
+            try:
+                result = future.result()
+                if result["success"]:
+                    successful_results.append(result)
+                    print(f"   ✅ Batch {batch_id} completed")
+                else:
+                    failed_results.append(result)
+                    print(f"   ❌ Batch {batch_id} failed")
+            except Exception as e:
+                failed_results.append({"batch_id": batch_id, "error": str(e)})
+                print(f"   ❌ Batch {batch_id} exception: {e}")
+    
+    total_time = time.time() - start_time
+    total_points = sum(r["points_processed"] for r in successful_results)
+    
+    print()
+    print(f"📊 Concurrent processing complete!")
+    print(f"   Successful batches: {len(successful_results)}")
+    print(f"   Failed batches: {len(failed_results)}")
+    print(f"   Total points processed: {total_points}")
+    print(f"   Total time: {total_time:.2f}s")
+    if total_points > 0:
+        print(f"   Processing rate: {total_points / total_time:.1f} points/sec")
+
+def main():
+    """Main function demonstrating batch processing with localhost"""
+    print("🚀 NeuroCluster Streamer - Localhost Batch Processing Examples")
+    print("=" * 65)
+    print()
+    print("This example demonstrates batch processing with your local NCS API server.")
+    print("Make sure your server is running: python main_secure.py")
+    print()
+    
+    # Check server connection
+    try:
+        response = requests.get("http://localhost:8000/health", timeout=5)
+        if response.status_code == 200:
+            health = response.json()
+            print(f"✅ Connected to local server (status: {health.get('status', 'unknown')})")
+        else:
+            print(f"⚠️  Server responded with status {response.status_code}")
+    except:
+        print("❌ Cannot connect to local server at http://localhost:8000")
+        print("💡 Start the server with: python main_secure.py")
+        return
+    
+    print()
+    
+    # Run examples
+    try:
+        example_simple_batch_processing()
+        print()
+        
+        example_multi_batch_processing()
+        print()
+        
+        example_concurrent_batch_processing()
+        
+    except KeyboardInterrupt:
+        print()
+        print("⚠️  Processing interrupted by user")
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+    
+    print()
+    print("🎉 BATCH PROCESSING EXAMPLES COMPLETE!")
+    print("=" * 45)
+    print()
+    print("💡 TIPS FOR LOCALHOST DEVELOPMENT:")
+    print("   • Start with small batches to avoid overwhelming the server")
+    print("   • Monitor server logs for performance insights")
+    print("   • Use concurrent processing sparingly on localhost")
+    print("   • Check http://localhost:8000/docs for API documentation")
+    print()
+
+if __name__ == "__main__":
+    main()
 "@
 
 if (-not $DryRun) {
-    Set-Content -Path "tests/test_api.py" -Value $workingTest -Encoding UTF8
+    Set-Content -Path "sdk/python/examples/batch_processing.py" -Value $fixedBatchProcessing -Encoding UTF8
 }
-Write-Fix "Created working test file with robust tests"
+Write-Fix "Updated batch_processing.py for localhost development"
 
 # =============================================================================
-# CRITICAL FIX 5: CREATE BASIC REQUIREMENTS
+# FIX 3: UPDATE STREAMING_EXAMPLE.PY FOR LOCALHOST
 # =============================================================================
 Write-Host ""
-Write-Host "[FIX 5] Create basic requirements files" -ForegroundColor Yellow
+Write-Host "[FIX 3] sdk/python/examples/streaming_example.py" -ForegroundColor Yellow
 
-$basicRequirements = @"
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-pydantic==2.5.0
-python-multipart==0.0.6
-httpx==0.25.2
-numpy==1.25.2
-"@
+$fixedStreamingExample = @"
+#!/usr/bin/env python3
+"""
+NeuroCluster Streamer Python SDK - Streaming Example (LOCALHOST VERSION)
+=========================================================================
+Demonstrates streaming patterns for the NCS Python SDK with local development server
 
-$basicDevRequirements = @"
-pytest==7.4.3
-pytest-asyncio==0.21.1
-black==23.11.0
-isort==5.12.0
-flake8==6.1.0
+Note: This example focuses on HTTP-based streaming simulation since WebSocket 
+streaming requires additional server-side implementation.
+
+This example shows:
+- Simulated real-time processing with localhost
+- Continuous data point streaming
+- Performance monitoring
+- Error handling for local development
+
+Author: NCS API Development Team
+Year: 2025
+"""
+
+import os
+import sys
+import time
+import random
+import requests
+import threading
+from typing import List, Dict, Any, Callable
+from queue import Queue
+import json
+
+class LocalStreamSimulator:
+    """Simulates streaming by sending points continuously to localhost API"""
+    
+    def __init__(self, base_url: str = "http://localhost:8000"):
+        self.base_url = base_url
+        self.is_streaming = False
+        self.stats = {
+            "points_sent": 0,
+            "successful_requests": 0,
+            "failed_requests": 0,
+            "total_processing_time": 0
+        }
+    
+    def check_server(self) -> bool:
+        """Check if local server is accessible"""
+        try:
+            response = requests.get(f"{self.base_url}/health", timeout=5)
+            return response.status_code == 200
+        except:
+            return False
+    
+    def send_point(self, coordinates: List[float], metadata: Dict = None) -> Dict[str, Any]:
+        """Send a single point to the API"""
+        if metadata is None:
+            metadata = {"timestamp": time.time(), "source": "stream_simulator"}
+        
+        point_data = {
+            "point": {
+                "coordinates": coordinates,
+                "metadata": metadata
+            }
+        }
+        
+        try:
+            start_time = time.time()
+            response = requests.post(
+                f"{self.base_url}/api/v1/process/point",
+                json=point_data,
+                timeout=10
+            )
+            processing_time = time.time() - start_time
+            
+            self.stats["points_sent"] += 1
+            
+            if response.status_code == 200:
+                self.stats["successful_requests"] += 1
+                self.stats["total_processing_time"] += processing_time
+                result = response.json()
+                return {
+                    "success": True,
+                    "processing_time_ms": processing_time * 1000,
+                    "cluster_id": result.get("result", {}).get("cluster_id"),
+                    "confidence": result.get("result", {}).get("confidence"),
+                    "request_id": result.get("request_id")
+                }
+            else:
+                self.stats["failed_requests"] += 1
+                return {
+                    "success": False,
+                    "error": f"HTTP {response.status_code}",
+                    "processing_time_ms": processing_time * 1000
+                }
+        except Exception as e:
+            self.stats["failed_requests"] += 1
+            return {
+                "success": False,
+                "error": str(e),
+                "processing_time_ms": 0
+            }
+    
+    def start_streaming(self, point_generator: Callable, interval: float = 1.0, 
+                       on_result: Callable = None, duration: float = 30.0):
+        """Start streaming points to the API"""
+        if not self.check_server():
+            print("❌ Local server not accessible. Start with: python main_secure.py")
+            return
+        
+        print(f"🌊 Starting streaming to {self.base_url}")
+        print(f"   Interval: {interval}s, Duration: {duration}s")
+        
+        self.is_streaming = True
+        start_time = time.time()
+        
+        while self.is_streaming and (time.time() - start_time) < duration:
+            # Generate next point
+            point = point_generator()
+            
+            # Send point
+            result = self.send_point(point)
+            
+            # Call result callback if provided
+            if on_result:
+                on_result(point, result)
+            
+            # Wait for next interval
+            time.sleep(interval)
+        
+        self.is_streaming = False
+        print("🛑 Streaming stopped")
+        self.print_stats()
+    
+    def stop_streaming(self):
+        """Stop the streaming"""
+        self.is_streaming = False
+    
+    def print_stats(self):
+        """Print streaming statistics"""
+        print()
+        print("📊 Streaming Statistics:")
+        print(f"   Points sent: {self.stats['points_sent']}")
+        print(f"   Successful: {self.stats['successful_requests']}")
+        print(f"   Failed: {self.stats['failed_requests']}")
+        if self.stats['successful_requests'] > 0:
+            avg_time = self.stats['total_processing_time'] / self.stats['successful_requests']
+            print(f"   Average processing time: {avg_time * 1000:.2f}ms")
+        success_rate = (self.stats['successful_requests'] / max(1, self.stats['points_sent'])) * 100
+        print(f"   Success rate: {success_rate:.1f}%")
+
+def generate_random_walk_point(center: List[float] = None, step_size: float = 0.5) -> List[float]:
+    """Generate a point using random walk pattern"""
+    if center is None:
+        center = [0.0, 0.0, 0.0]
+    
+    return [
+        center[0] + random.gauss(0, step_size),
+        center[1] + random.gauss(0, step_size), 
+        center[2] + random.gauss(0, step_size)
+    ]
+
+def generate_orbit_point(time_step: float, radius: float = 5.0, speed: float = 1.0) -> List[float]:
+    """Generate points in an orbital pattern"""
+    angle = time_step * speed
+    return [
+        radius * math.cos(angle),
+        radius * math.sin(angle),
+        random.gauss(0, 0.1)  # Small z variation
+    ]
+
+def example_basic_streaming():
+    """Example 1: Basic streaming with random points"""
+    print("🌊 Example 1: Basic Streaming with Random Points")
+    print("-" * 50)
+    
+    simulator = LocalStreamSimulator()
+    
+    # Simple point generator
+    def random_point_generator():
+        return [
+            random.uniform(-10, 10),
+            random.uniform(-10, 10), 
+            random.uniform(-10, 10)
+        ]
+    
+    # Result handler
+    def handle_result(point, result):
+        if result["success"]:
+            cluster_id = result.get("cluster_id", "unknown")
+            confidence = result.get("confidence", 0)
+            print(f"📍 Point {point} → Cluster {cluster_id} (conf: {confidence:.3f})")
+        else:
+            print(f"❌ Point {point} failed: {result.get('error', 'unknown')}")
+    
+    # Start streaming for 15 seconds
+    simulator.start_streaming(
+        point_generator=random_point_generator,
+        interval=2.0,  # Send every 2 seconds
+        on_result=handle_result,
+        duration=15.0
+    )
+
+def example_clustered_streaming():
+    """Example 2: Streaming with clustered data patterns"""
+    print("🌊 Example 2: Streaming with Clustered Data")
+    print("-" * 50)
+    
+    simulator = LocalStreamSimulator()
+    
+    # Cluster centers that change over time
+    cluster_centers = [
+        [2.0, 2.0, 0.0],
+        [8.0, 2.0, 0.0],
+        [5.0, 8.0, 0.0]
+    ]
+    
+    current_cluster = 0
+    points_in_cluster = 0
+    max_points_per_cluster = 3
+    
+    def clustered_point_generator():
+        nonlocal current_cluster, points_in_cluster
+        
+        # Switch clusters periodically
+        if points_in_cluster >= max_points_per_cluster:
+            current_cluster = (current_cluster + 1) % len(cluster_centers)
+            points_in_cluster = 0
+            print(f"🔄 Switching to cluster {current_cluster}")
+        
+        center = cluster_centers[current_cluster]
+        points_in_cluster += 1
+        
+        return [
+            center[0] + random.gauss(0, 0.5),
+            center[1] + random.gauss(0, 0.5),
+            center[2] + random.gauss(0, 0.5)
+        ]
+    
+    # Enhanced result handler
+    cluster_tracking = {}
+    
+    def handle_clustered_result(point, result):
+        if result["success"]:
+            cluster_id = result.get("cluster_id", -1)
+            confidence = result.get("confidence", 0)
+            
+            # Track cluster assignments
+            if cluster_id not in cluster_tracking:
+                cluster_tracking[cluster_id] = []
+            cluster_tracking[cluster_id].append(confidence)
+            
+            print(f"📍 Point → Cluster {cluster_id} (conf: {confidence:.3f})")
+            
+            # Show cluster summary every few points
+            if len(cluster_tracking.get(cluster_id, [])) % 3 == 0:
+                avg_conf = sum(cluster_tracking[cluster_id]) / len(cluster_tracking[cluster_id])
+                print(f"   📊 Cluster {cluster_id} avg confidence: {avg_conf:.3f}")
+        else:
+            print(f"❌ Processing failed: {result.get('error', 'unknown')}")
+    
+    # Start streaming
+    simulator.start_streaming(
+        point_generator=clustered_point_generator,
+        interval=1.5,
+        on_result=handle_clustered_result, 
+        duration=20.0
+    )
+    
+    # Final cluster summary
+    print()
+    print("📊 Final Cluster Tracking:")
+    for cluster_id, confidences in cluster_tracking.items():
+        avg_conf = sum(confidences) / len(confidences)
+        print(f"   Cluster {cluster_id}: {len(confidences)} points, avg conf: {avg_conf:.3f}")
+
+def example_performance_streaming():
+    """Example 3: Performance-focused streaming"""
+    print("⚡ Example 3: Performance Streaming")
+    print("-" * 50)
+    
+    simulator = LocalStreamSimulator()
+    
+    # Fast point generator
+    def fast_point_generator():
+        return [random.gauss(0, 2), random.gauss(0, 2), random.gauss(0, 2)]
+    
+    # Performance tracking
+    response_times = []
+    
+    def performance_handler(point, result):
+        if result["success"]:
+            response_time = result.get("processing_time_ms", 0)
+            response_times.append(response_time)
+            
+            if len(response_times) % 5 == 0:  # Report every 5 points
+                recent_times = response_times[-5:]
+                avg_time = sum(recent_times) / len(recent_times)
+                min_time = min(recent_times)
+                max_time = max(recent_times)
+                print(f"⚡ Last 5 points: avg={avg_time:.1f}ms, min={min_time:.1f}ms, max={max_time:.1f}ms")
+        else:
+            print(f"❌ Error: {result.get('error', 'unknown')}")
+    
+    print("🚀 Starting high-frequency streaming...")
+    simulator.start_streaming(
+        point_generator=fast_point_generator,
+        interval=0.5,  # Every 500ms
+        on_result=performance_handler,
+        duration=15.0
+    )
+    
+    # Performance analysis
+    if response_times:
+        print()
+        print("📊 Performance Analysis:")
+        print(f"   Total points processed: {len(response_times)}")
+        print(f"   Average response time: {sum(response_times) / len(response_times):.2f}ms")
+        print(f"   Min response time: {min(response_times):.2f}ms")
+        print(f"   Max response time: {max(response_times):.2f}ms")
+        print(f"   Throughput: {len(response_times) / 15.0:.1f} points/sec")
+
+def main():
+    """Main function demonstrating streaming with localhost"""
+    print("🚀 NeuroCluster Streamer - Localhost Streaming Examples")
+    print("=" * 60)
+    print()
+    print("This example demonstrates streaming data to your local NCS API server.")
+    print("Make sure your server is running: python main_secure.py")
+    print()
+    
+    # Check server
+    try:
+        response = requests.get("http://localhost:8000/health", timeout=5)
+        if response.status_code == 200:
+            health = response.json()
+            print(f"✅ Connected to local server (status: {health.get('status')})")
+            if not health.get('algorithm_ready', False):
+                print("⚠️  Algorithm not ready yet (this is normal on startup)")
+        else:
+            print(f"⚠️  Server responded with status {response.status_code}")
+    except:
+        print("❌ Cannot connect to local server at http://localhost:8000")
+        print("💡 Start the server with: python main_secure.py")
+        return
+    
+    print()
+    
+    # Import math for orbit example
+    import math
+    
+    try:
+        example_basic_streaming()
+        print()
+        
+        example_clustered_streaming() 
+        print()
+        
+        example_performance_streaming()
+        
+    except KeyboardInterrupt:
+        print()
+        print("⚠️  Streaming interrupted by user")
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+    
+    print()
+    print("🎉 STREAMING EXAMPLES COMPLETE!")
+    print("=" * 40)
+    print()
+    print("💡 NEXT STEPS:")
+    print("   • Monitor server performance in the terminal where you started it")
+    print("   • Visit http://localhost:8000/api/v1/stats to see processing statistics")
+    print("   • Experiment with different streaming patterns and intervals")
+    print("   • Check server logs for insights into algorithm performance")
+    print()
+
+if __name__ == "__main__":
+    main()
 "@
 
 if (-not $DryRun) {
-    Set-Content -Path "requirements.txt" -Value $basicRequirements -Encoding UTF8
-    Set-Content -Path "requirements-dev.txt" -Value $basicDevRequirements -Encoding UTF8
+    Set-Content -Path "sdk/python/examples/streaming_example.py" -Value $fixedStreamingExample -Encoding UTF8
 }
-Write-Fix "Created basic requirements files"
+Write-Fix "Updated streaming_example.py for localhost development"
+
+# =============================================================================
+# FIX 4: CREATE LOCALHOST DEVELOPMENT README
+# =============================================================================
+Write-Host ""
+Write-Host "[FIX 4] Creating localhost development guide" -ForegroundColor Yellow
+
+$localhostReadme = @"
+# NCS API - Localhost Development Guide
+
+## 🚀 Quick Start for Local Development
+
+Your NCS API is designed to run locally during development. All SDK examples have been updated to work with `http://localhost:8000`.
+
+### 1. Start Your Local API Server
+
+```bash
+# In your main project directory
+python main_secure.py
+```
+
+You should see:
+```
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process
+```
+
+### 2. Verify Server is Running
+
+Open these URLs in your browser:
+- **API Health**: http://localhost:8000/health
+- **API Docs**: http://localhost:8000/docs  
+- **Root Endpoint**: http://localhost:8000/
+
+### 3. Test with SDK Examples
+
+```bash
+# Basic usage example
+python sdk/python/examples/basic_usage.py
+
+# Batch processing example  
+python sdk/python/examples/batch_processing.py
+
+# Streaming example
+python sdk/python/examples/streaming_example.py
+```
+
+## 📡 API Endpoints (Localhost)
+
+### Core Endpoints
+- `GET http://localhost:8000/health` - Health check
+- `GET http://localhost:8000/` - Root endpoint
+- `GET http://localhost:8000/docs` - Interactive API documentation
+
+### Processing Endpoints  
+- `POST http://localhost:8000/api/v1/process/point` - Process single point
+- `POST http://localhost:8000/api/v1/process/batch` - Process multiple points
+- `GET http://localhost:8000/api/v1/stats` - Get processing statistics
+
+## 🧪 Testing Your API
+
+### Manual Testing with curl
+
+```bash
+# Health check
+curl http://localhost:8000/health
+
+# Process a single point
+curl -X POST http://localhost:8000/api/v1/process/point \
+  -H "Content-Type: application/json" \
+  -d '{
+    "point": {
+      "coordinates": [1.5, 2.5, 3.5],
+      "metadata": {"source": "manual_test"}
+    }
+  }'
+```
+
+### Python Testing
+
+```python
+import requests
+
+# Test basic connectivity
+response = requests.get("http://localhost:8000/health")
+print(response.json())
+
+# Test point processing
+point_data = {
+    "point": {
+        "coordinates": [1.0, 2.0, 3.0],
+        "metadata": {"test": True}
+    }
+}
+response = requests.post("http://localhost:8000/api/v1/process/point", json=point_data)
+print(response.json())
+```
+
+## 🔧 Development Configuration
+
+### Environment Variables
+```bash
+# Optional - customize your local setup
+export NCS_API_URL="http://localhost:8000"
+export DEBUG=true
+export LOG_LEVEL=INFO
+```
+
+### For Production Deployment
+When you're ready to deploy, update the URLs in:
+- SDK examples (`sdk/python/examples/`)
+- Documentation
+- Client applications
+
+Change `http://localhost:8000` to your production URL like `https://api.yourdomain.com`
+
+## 🐛 Troubleshooting
+
+### "Cannot connect to server"
+1. Make sure server is running: `python main_secure.py`
+2. Check the port isn't being used by another application
+3. Verify you're in the correct directory
+
+### "Algorithm not ready"
+- This is normal on startup - wait a few seconds for initialization
+- Check server logs for any error messages
+
+### "Module not found" errors
+```bash
+# Install required dependencies
+pip install fastapi uvicorn pytest requests
+```
+
+## 📊 Monitoring Your Local API
+
+- **Server logs**: Watch the terminal where you started `python main_secure.py`
+- **Statistics**: Visit http://localhost:8000/api/v1/stats  
+- **Health status**: Visit http://localhost:8000/health
+- **API docs**: Visit http://localhost:8000/docs for interactive testing
+
+## 🚀 Next Steps
+
+1. **Develop locally** using `http://localhost:8000`
+2. **Test your algorithms** with the provided examples
+3. **Deploy to production** when ready (update URLs accordingly)
+4. **Set up CI/CD** for automated testing and deployment
+
+Happy developing! 🎉
+"@
+
+if (-not $DryRun) {
+    Set-Content -Path "LOCALHOST_DEVELOPMENT.md" -Value $localhostReadme -Encoding UTF8
+}
+Write-Fix "Created localhost development guide"
 
 # =============================================================================
 # SUMMARY
 # =============================================================================
 Write-Host ""
-Write-Host "🎯 EMERGENCY FIXES COMPLETED!" -ForegroundColor Green
-Write-Host "=============================" -ForegroundColor Green
+Write-Host "🎉 LOCALHOST DEVELOPMENT FIX COMPLETE!" -ForegroundColor Green
+Write-Host "=======================================" -ForegroundColor Green
 
 Write-Host ""
-Write-Host "Fixed Issues:" -ForegroundColor Green
-Write-Host "✅ GitHub Actions: Changed black --check to black ." -ForegroundColor Green
-Write-Host "✅ main_secure.py: Created working FastAPI app with exported 'app'" -ForegroundColor Green  
-Write-Host "✅ conftest.py: Fixed import errors with fallback logic" -ForegroundColor Green
-Write-Host "✅ test_api.py: Created robust tests that actually pass" -ForegroundColor Green
-Write-Host "✅ requirements: Added basic FastAPI and testing dependencies" -ForegroundColor Green
+Write-Host "Fixed Files:" -ForegroundColor Cyan
+Write-Host "  📄 sdk/python/examples/basic_usage.py" -ForegroundColor Gray
+Write-Host "  📄 sdk/python/examples/batch_processing.py" -ForegroundColor Gray  
+Write-Host "  📄 sdk/python/examples/streaming_example.py" -ForegroundColor Gray
+Write-Host "  📄 LOCALHOST_DEVELOPMENT.md" -ForegroundColor Gray
 
 Write-Host ""
-Write-Host "IMMEDIATE NEXT STEPS:" -ForegroundColor Cyan
-Write-Host "1. Test locally:" -ForegroundColor White
+Write-Host "All examples now use:" -ForegroundColor Yellow
+Write-Host "  🏠 http://localhost:8000 (instead of external URLs)" -ForegroundColor Green
+
+Write-Host ""
+Write-Host "NEXT STEPS:" -ForegroundColor Cyan
+Write-Host "1. Start your API server:" -ForegroundColor White
 Write-Host "   python main_secure.py" -ForegroundColor Gray
-Write-Host "   # Should start on http://localhost:8000" -ForegroundColor Gray
 
 Write-Host ""
-Write-Host "2. Test the API:" -ForegroundColor White
-Write-Host "   pytest tests/ -v" -ForegroundColor Gray
+Write-Host "2. Test the examples:" -ForegroundColor White  
+Write-Host "   python sdk/python/examples/basic_usage.py" -ForegroundColor Gray
 
 Write-Host ""
-Write-Host "3. Commit and push:" -ForegroundColor White  
+Write-Host "3. Commit the fixes:" -ForegroundColor White
 Write-Host "   git add ." -ForegroundColor Gray
-Write-Host "   git commit -m 'fix: emergency pipeline fix - resolve Black and import errors'" -ForegroundColor Gray
+Write-Host "   git commit -m 'fix: update SDK examples for localhost development'" -ForegroundColor Gray
 Write-Host "   git push" -ForegroundColor Gray
 
 Write-Host ""
-Write-Host "🚀 Your pipeline should now be GREEN! 🟢" -ForegroundColor Green
+Write-Host "🚀 Your pipeline should now be GREEN! No more external URL errors!" -ForegroundColor Green
