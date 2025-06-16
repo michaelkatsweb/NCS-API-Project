@@ -8,10 +8,10 @@ Database migration script for NCS API.
 Simple migration runner for development and testing.
 """
 
-import os
-import sys
 import argparse
 import logging
+import os
+import sys
 from pathlib import Path
 
 # Add project root to path

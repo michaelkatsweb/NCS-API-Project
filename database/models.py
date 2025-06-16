@@ -7,32 +7,32 @@ clustering data, performance metrics, audit logs, and system configuration.
 
 import uuid
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any, List
 from decimal import Decimal
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy import (
-    Column,
-    String,
-    Integer,
-    Float,
-    DateTime,
-    Boolean,
-    Text,
+    DECIMAL,
     JSON,
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    Column,
+    DateTime,
+    Float,
     ForeignKey,
     Index,
-    UniqueConstraint,
-    CheckConstraint,
-    DECIMAL,
+    Integer,
     LargeBinary,
     SmallInteger,
-    BigInteger,
+    String,
+    Text,
+    UniqueConstraint,
 )
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, validates
-from sqlalchemy.dialects.postgresql import UUID, ARRAY, JSONB
-from sqlalchemy.sql import func
 from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import relationship, validates
+from sqlalchemy.sql import func
 
 Base = declarative_base()
 

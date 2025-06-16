@@ -42,20 +42,21 @@ Examples:
     python scripts/db_migrate.py seed --environment staging
 """
 
-import os
-import sys
 import argparse
-import logging
-import psycopg2
-import json
 import hashlib
+import json
+import logging
+import os
+import shutil
 import subprocess
+import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
-import tempfile
-import shutil
+
+import psycopg2
 
 # Add project root to path for imports
 script_dir = Path(__file__).parent
@@ -64,17 +65,18 @@ sys.path.insert(0, str(project_root))
 
 try:
     from sqlalchemy import (
-        create_engine,
-        text,
-        MetaData,
-        Table,
         Column,
-        String,
         DateTime,
         Integer,
+        MetaData,
+        String,
+        Table,
+        create_engine,
+        text,
     )
-    from sqlalchemy.orm import sessionmaker
     from sqlalchemy.exc import SQLAlchemyError
+    from sqlalchemy.orm import sessionmaker
+
     from config import settings
 except ImportError as e:
     print(f"Error importing required modules: {e}")

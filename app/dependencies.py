@@ -14,38 +14,39 @@ Author: NCS API Development Team
 Year: 2025
 """
 
+import asyncio
 import time
 import uuid
-import asyncio
-from typing import Optional, Dict, Any, Callable, Generator, AsyncGenerator
-from functools import wraps
 from contextlib import asynccontextmanager
+from functools import wraps
+from typing import Any, AsyncGenerator, Callable, Dict, Generator, Optional
 
-from fastapi import Depends, HTTPException, Request, Response, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import redis.asyncio as aioredis
+from fastapi import Depends, HTTPException, Request, Response, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from config import get_settings
 from auth import (
-    get_current_active_user,
-    verify_api_key_dependency,
-    User,
     APIKeyInfo,
+    User,
+    get_current_active_user,
     rate_limiter,
+    verify_api_key_dependency,
+)
+from config import get_settings
+
+from .exceptions import (
+    NCSAPIException,
+    ProcessingException,
+    RateLimitException,
+    ResourceException,
+    ValidationException,
 )
 from .models import (
-    PaginationParams,
     BatchProcessingOptions,
     ClusteringConfiguration,
     ErrorCode,
+    PaginationParams,
     ProcessingStatus,
-)
-from .exceptions import (
-    NCSAPIException,
-    ValidationException,
-    ResourceException,
-    RateLimitException,
-    ProcessingException,
 )
 from .utils import generate_request_id, measure_execution_time
 
@@ -465,8 +466,9 @@ async def check_system_resources() -> Dict[str, Any]:
     Raises:
         ResourceException: If resources are critically low
     """
-    import psutil
     import os
+
+    import psutil
 
     try:
         # Get memory usage

@@ -21,14 +21,15 @@ Author: Based on NCS Algorithm by Katsaros Michael
 Year: 2025
 """
 
-import numpy as np
+import gc
+import threading
 import time
 import warnings
 from collections import deque
-from typing import List, Tuple, Dict, Any, Optional, Union
 from dataclasses import dataclass
-import threading
-import gc
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import numpy as np
 
 
 @dataclass

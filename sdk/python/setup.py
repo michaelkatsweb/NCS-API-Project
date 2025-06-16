@@ -8,9 +8,10 @@ Author: NCS API Development Team
 Year: 2025
 """
 
-from setuptools import setup, find_packages
 import os
 import re
+
+from setuptools import find_packages, setup
 
 
 # Read version from __init__.py

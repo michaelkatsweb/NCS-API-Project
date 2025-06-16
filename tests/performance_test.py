@@ -11,17 +11,18 @@ This module provides comprehensive performance testing including:
 - Performance regression detection
 """
 
-import time
-import json
-import threading
 import asyncio
-import statistics
-import psutil
 import gc
+import json
+import statistics
+import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, List, Any, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from typing import Any, Dict, List, Tuple
+
+import psutil
 import pytest
 from fastapi.testclient import TestClient
 

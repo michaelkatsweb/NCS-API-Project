@@ -14,22 +14,24 @@ import json
 import time
 import uuid
 from datetime import datetime, timedelta
-from typing import Dict, Any
+from typing import Any, Dict
+from unittest.mock import MagicMock, patch
+
+import jwt
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
-import jwt
 
 from auth import (
     create_access_token,
     create_refresh_token,
-    verify_token,
+    get_current_user,
     hash_password,
     verify_password,
-    get_current_user,
+    verify_token,
 )
 from config import settings
-from . import TEST_USERS, API_ENDPOINTS
+
+from . import API_ENDPOINTS, TEST_USERS
 
 
 class TestJWTAuthentication:

@@ -13,12 +13,13 @@ This module tests all API endpoints including:
 import json
 import time
 import uuid
-from typing import Dict, Any
+from typing import Any, Dict
+from unittest.mock import MagicMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
 
-from . import SAMPLE_DATA_POINTS, SAMPLE_CLUSTERING_CONFIG, API_ENDPOINTS
+from . import API_ENDPOINTS, SAMPLE_CLUSTERING_CONFIG, SAMPLE_DATA_POINTS
 
 
 class TestHealthEndpoints:

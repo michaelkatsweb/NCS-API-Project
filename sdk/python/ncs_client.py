@@ -14,18 +14,18 @@ Year: 2025
 import json
 import logging
 import time
-from typing import Dict, List, Any, Optional, Union, Callable
+import warnings
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-import warnings
+from typing import Any, Callable, Dict, List, Optional, Union
 
-import requests
 import httpx
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 import jwt
-from tenacity import retry, stop_after_attempt, wait_exponential
+import requests
 from ratelimit import limits, sleep_and_retry
+from requests.adapters import HTTPAdapter
+from tenacity import retry, stop_after_attempt, wait_exponential
+from urllib3.util.retry import Retry
 
 # Type definitions
 Point = List[Union[int, float]]

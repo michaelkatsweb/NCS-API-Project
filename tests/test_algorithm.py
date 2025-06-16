@@ -10,15 +10,17 @@ This module tests the core NCS algorithm functionality including:
 - Edge cases and error conditions
 """
 
-import numpy as np
-import time
 import threading
-from typing import List, Dict, Any
+import time
+from typing import Any, Dict, List
+from unittest.mock import MagicMock, patch
+
+import numpy as np
 import pytest
-from unittest.mock import patch, MagicMock
 
 from NCS_V8 import NCSClusteringAlgorithm
-from . import SAMPLE_DATA_POINTS, SAMPLE_CLUSTERING_CONFIG
+
+from . import SAMPLE_CLUSTERING_CONFIG, SAMPLE_DATA_POINTS
 
 
 class TestAlgorithmInitialization:

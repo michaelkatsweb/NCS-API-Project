@@ -15,21 +15,21 @@ Author: NCS API Development Team
 Year: 2025
 """
 
-import os
-import sys
 import logging
-from typing import List
+import os
 import random
+import sys
 import time
+from typing import List
 
 # Add the parent directory to path for development
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ncs_client import (
-    NCSClient,
     AsyncNCSClient,
-    NCSError,
     AuthenticationError,
+    NCSClient,
+    NCSError,
     RateLimitError,
     configure_logging,
     create_client_from_env,
@@ -259,7 +259,6 @@ def main():
             api_key=os.getenv("NCS_API_KEY", "demo-key"),
             timeout=15.0,
         ) as context_client:
-
             # Generate small dataset
             small_dataset = generate_sample_points(5)
             result = context_client.process_points(small_dataset)

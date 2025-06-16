@@ -20,40 +20,31 @@ __description__ = "Official Python client library for the NeuroCluster Streamer 
 __license__ = "MIT"
 __url__ = "https://github.com/your-org/ncs-api"
 
-# Import main client classes
-from .ncs_client import (
-    # Main client
-    NCSClient,
-    # Data models
-    Cluster,
-    ProcessingResult,
-    AlgorithmStatus,
-    HealthStatus,
-    # Type definitions
-    Point,
-    Points,
-    # Utilities
-    create_client,
-)
-
-from .async_client import (
-    # Async client
+from .async_client import (  # Async client; Async utilities
     AsyncNCSClient,
-    StreamingConnection,
     AsyncRateLimiter,
-    # Async utilities
-    create_async_client,
+    StreamingConnection,
     async_client_context,
+    create_async_client,
 )
 
 # Import all exceptions with consistent naming
-from .ncs_client import (
-    NCSError,
+# Import main client classes
+from .ncs_client import (  # Main client; Data models; Type definitions; Utilities
+    AlgorithmStatus,
     AuthenticationError,
+    Cluster,
+    ConnectionError,
+    HealthStatus,
+    NCSClient,
+    NCSError,
+    Point,
+    Points,
+    ProcessingError,
+    ProcessingResult,
     RateLimitError,
     ValidationError,
-    ProcessingError,
-    ConnectionError,
+    create_client,
 )
 
 

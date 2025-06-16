@@ -16,23 +16,23 @@ Year: 2025
 """
 
 import asyncio
-import os
-import sys
-import logging
-import random
-import time
-from typing import List, Dict, Any
 import json
+import logging
+import os
+import random
+import sys
+import time
+from typing import Any, Dict, List
 
 # Add the parent directory to path for development
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ncs_client import (
     AsyncNCSClient,
+    NCSError,
+    ProcessingResult,
     async_client_context,
     configure_logging,
-    ProcessingResult,
-    NCSError,
 )
 
 
@@ -126,7 +126,6 @@ async def example_basic_streaming():
         base_url=os.getenv("NCS_API_URL", "wss://demo.ncs-api.com"),
         api_key=os.getenv("NCS_API_KEY", "demo-key"),
     ) as client:
-
         # Message handler for incoming cluster updates
         async def handle_stream_message(data: Dict[str, Any]):
             if data.get("type") == "cluster_update":
@@ -178,7 +177,6 @@ async def example_concurrent_processing():
         api_key=os.getenv("NCS_API_KEY", "demo-key"),
         max_connections=10,
     ) as client:
-
         # Generate multiple batches of points concurrently
         def generate_batch(batch_id: int, size: int = 50) -> List[List[float]]:
             """Generate a batch of points around a specific area."""
@@ -205,9 +203,7 @@ async def example_concurrent_processing():
             results = await client.process_points_concurrent(batches, max_concurrent=3)
             processing_time = time.time() - start_time
 
-            print(
-                f"✅ Concurrent processing completed in {processing_time:.2f} seconds"
-            )
+            print(f"✅ Concurrent processing completed in {processing_time:.2f} seconds")
             print(f"📊 Results summary:")
 
             total_clusters = sum(len(result.clusters) for result in results)
@@ -240,7 +236,6 @@ async def example_stream_processing():
         base_url=os.getenv("NCS_API_URL", "https://demo.ncs-api.com"),
         api_key=os.getenv("NCS_API_KEY", "demo-key"),
     ) as client:
-
         print("🚀 Starting real-time stream processing...")
 
         # Stream processor function
@@ -321,7 +316,6 @@ async def example_adaptive_batching():
         base_url=os.getenv("NCS_API_URL", "https://demo.ncs-api.com"),
         api_key=os.getenv("NCS_API_KEY", "demo-key"),
     ) as client:
-
         # Adaptive batch processor
         class AdaptiveBatchProcessor:
             def __init__(self):

@@ -17,29 +17,29 @@ Year: 2025
 """
 
 import asyncio
-import os
-import sys
-import logging
-import random
-import time
-import json
 import csv
-from typing import List, Dict, Any, Optional, Iterator
-from dataclasses import dataclass
-from concurrent.futures import ThreadPoolExecutor
+import json
+import logging
+import os
+import random
+import sys
 import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
+from typing import Any, Dict, Iterator, List, Optional
 
 # Add the parent directory to path for development
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ncs_client import (
-    NCSClient,
     AsyncNCSClient,
-    ProcessingResult,
+    NCSClient,
     NCSError,
+    ProcessingResult,
     RateLimitError,
-    configure_logging,
     async_client_context,
+    configure_logging,
 )
 
 
@@ -280,7 +280,6 @@ async def example_async_batch_processing():
         timeout=60.0,
         max_connections=max_concurrent * 2,
     ) as client:
-
         # Semaphore to control concurrency
         semaphore = asyncio.Semaphore(max_concurrent)
 
@@ -436,7 +435,6 @@ async def example_memory_efficient_processing():
         base_url=os.getenv("NCS_API_URL", "https://demo.ncs-api.com"),
         api_key=os.getenv("NCS_API_KEY", "demo-key"),
     ) as client:
-
         # Generator for memory efficiency (doesn't store all data in memory)
         def memory_efficient_generator():
             """Generate batches on-demand to save memory."""

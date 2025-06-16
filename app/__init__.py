@@ -13,8 +13,8 @@ Author: NCS API Development Team
 Year: 2025
 """
 
-from .models import *
 from .exceptions import *
+from .models import *
 from .utils import *
 
 __version__ = "1.0.0"

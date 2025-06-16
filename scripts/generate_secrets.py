@@ -30,28 +30,29 @@ Examples:
     python scripts/generate_secrets.py --include-certs --format yaml
 """
 
-import os
-import sys
-import json
-import yaml
 import argparse
-import secrets
-import string
 import base64
 import hashlib
 import hmac
+import json
+import os
+import secrets
+import string
+import sys
 from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import yaml
 from cryptography import x509
-from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import (
     Encoding,
-    PrivateFormat,
     NoEncryption,
+    PrivateFormat,
 )
+from cryptography.x509.oid import NameOID
 
 
 # Color constants for output

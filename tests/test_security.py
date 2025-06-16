@@ -15,21 +15,23 @@ This module provides comprehensive security testing including:
 - OWASP Top 10 vulnerability testing
 """
 
-import json
-import time
-import uuid
 import base64
 import hashlib
+import json
 import secrets
-from typing import Dict, List, Any
-import pytest
-from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
-import jwt
+import time
+import uuid
+from typing import Any, Dict, List
+from unittest.mock import MagicMock, patch
 from urllib.parse import quote, unquote
 
+import jwt
+import pytest
+from fastapi.testclient import TestClient
+
 from auth import create_access_token, verify_token
-from . import TEST_USERS, API_ENDPOINTS
+
+from . import API_ENDPOINTS, TEST_USERS
 
 
 class TestInputValidationSecurity:

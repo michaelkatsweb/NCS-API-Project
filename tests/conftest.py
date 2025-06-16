@@ -9,38 +9,39 @@ This module provides:
 - Common test data and utilities
 """
 
-import os
-import uuid
 import asyncio
+import os
 import tempfile
-from typing import Dict, Any, Generator, AsyncGenerator
-import pytest
-import pytest_asyncio
+import uuid
+from typing import Any, AsyncGenerator, Dict, Generator
 from unittest.mock import MagicMock, patch
 
+import pytest
+import pytest_asyncio
+import redis
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
-import redis
+
+from app.dependencies import get_algorithm_instance
+from auth import create_access_token, get_current_user
+from config import settings
+from database.connection import get_database, get_db_session
+from database.models import Base
 
 # Import application modules
 from main_secure import app
-from config import settings
-from auth import create_access_token, get_current_user
-from database.connection import get_database, get_db_session
-from database.models import Base
 from NCS_V8 import NCSClusteringAlgorithm
-from app.dependencies import get_algorithm_instance
 
 # Import test constants
 from . import (
+    SAMPLE_CLUSTERING_CONFIG,
+    SAMPLE_DATA_POINTS,
     TEST_DATABASE_URL,
     TEST_REDIS_URL,
-    SAMPLE_DATA_POINTS,
-    SAMPLE_CLUSTERING_CONFIG,
-    TEST_USERS,
     TEST_TIMEOUTS,
+    TEST_USERS,
 )
 
 
@@ -428,8 +429,9 @@ def setup_test_environment():
 @pytest.fixture(scope="function")
 def seed_test_data(test_db_session, session_id):
     """Seed database with test data."""
-    from database.models import ProcessingSession, ClusterRecord, DataPointRecord
     from datetime import datetime
+
+    from database.models import ClusterRecord, DataPointRecord, ProcessingSession
 
     # Create test session
     session = ProcessingSession(

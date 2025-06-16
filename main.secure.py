@@ -3,25 +3,27 @@
 Production-ready FastAPI implementation with your NCS V8 algorithm
 """
 
-from fastapi import FastAPI, HTTPException, Depends, Request, BackgroundTasks
+import asyncio
+import logging
+import time
+import uuid
+from contextlib import asynccontextmanager
+from typing import Any, Dict, List, Optional
+
+import middleware
+import numpy as np
+import uvicorn
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
-import uvicorn
-import time
-import uuid
-import numpy as np
-from contextlib import asynccontextmanager
-from typing import List, Dict, Any, Optional
-import asyncio
-import logging
+from pydantic import BaseModel, Field, validator
+
+from auth import User, get_current_user, verify_api_key_dependency
+from config import get_settings
 
 # Import your existing modules
 from NCS_V8 import NeuroClusterStreamer
-from config import get_settings
-from auth import get_current_user, verify_api_key_dependency, User
-import middleware
-from pydantic import BaseModel, Field, validator
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

@@ -5,27 +5,28 @@ This module provides data access layer operations for all database models,
 including specialized queries for clustering analysis and performance monitoring.
 """
 
-import uuid
 import logging
+import uuid
 from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Any, Tuple, Union
 from decimal import Decimal
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-from sqlalchemy import and_, or_, func, desc, asc, text, select
-from sqlalchemy.orm import Session, joinedload, selectinload
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy import and_, asc, desc, func, or_, select, text
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.orm import Session, joinedload, selectinload
+
+from app.exceptions import DatabaseException, ValidationException
 
 from .models import (
-    DataPointRecord,
-    ClusterRecord,
-    ProcessingSession,
-    PerformanceMetric,
     AuditLog,
-    UserActivity,
+    ClusterRecord,
+    DataPointRecord,
+    PerformanceMetric,
+    ProcessingSession,
     SystemConfiguration,
+    UserActivity,
 )
-from app.exceptions import DatabaseException, ValidationException
 
 logger = logging.getLogger(__name__)
 
